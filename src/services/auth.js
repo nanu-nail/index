@@ -1,9 +1,10 @@
 import Vue from 'vue'
 import {
   GoogleAuthProvider,
+  getRedirectResult,
   getIdTokenResult,
   onAuthStateChanged,
-  signInWithPopup,
+  signInWithRedirect,
   signOut
 } from 'firebase/auth'
 import { doc, getDoc, serverTimestamp, setDoc } from 'firebase/firestore'
@@ -62,6 +63,10 @@ export function initializeAuth () {
     return null
   }
 
+  getRedirectResult(auth).catch((error) => {
+    authState.error = loginErrorMessage(error).message
+  })
+
   unsubscribeAuth = onAuthStateChanged(auth, async (user) => {
     authState.user = user
     authState.isAdmin = false
@@ -97,22 +102,22 @@ export async function signInWithGoogle () {
   provider.setCustomParameters({ prompt: 'select_account' })
 
   try {
-    const credential = await signInWithPopup(auth, provider)
-    return credential.user
+    await signInWithRedirect(auth, provider)
   } catch (error) {
-    if (error.code === 'auth/popup-closed-by-user') throw new Error('Google 登入視窗提早關閉，請檢查彈出視窗是否被瀏覽器封鎖，並確認目前網站網址已加入 Firebase 授權網域。')
-    if (error.code === 'auth/cancelled-popup-request') throw new Error('Google 登入視窗已取消，請稍候再試一次。')
-    if (error.code === 'auth/popup-blocked') throw new Error('瀏覽器封鎖了登入視窗，請允許彈出視窗後重試。')
-    if (error.code === 'auth/unauthorized-domain') throw new Error('此網站網域尚未加入 Firebase 授權網域。')
-    if (error.code === 'auth/operation-not-allowed') throw new Error('Firebase 尚未啟用 Google 登入提供者。')
-    if (error.code && (error.code.includes('api-key') || error.code.includes('identitytoolkit'))) {
-      throw new Error('Firebase Authentication 無法使用目前的 Web API Key。請確認它屬於 nanu-nail 專案，且 Identity Toolkit API 與 API 金鑰限制允許本機網站使用。')
-    }
-    if (error.code === 'auth/configuration-not-found' || error.code === 'auth/project-not-found') {
-      throw new Error('Firebase Authentication 專案設定尚未完成，請在 nanu-nail 專案確認已啟用 Authentication。')
-    }
-    throw new Error('Google 登入失敗，請稍後重試。')
+    throw loginErrorMessage(error)
   }
+}
+
+function loginErrorMessage (error) {
+  if (error.code === 'auth/unauthorized-domain') return new Error('此網站網域尚未加入 Firebase 授權網域。')
+  if (error.code === 'auth/operation-not-allowed') return new Error('Firebase 尚未啟用 Google 登入提供者。')
+  if (error.code && (error.code.includes('api-key') || error.code.includes('identitytoolkit'))) {
+    return new Error('Firebase Authentication 無法使用目前的 Web API Key。請確認它屬於 nanu-nail 專案，且 Identity Toolkit API 與 API 金鑰限制允許本機網站使用。')
+  }
+  if (error.code === 'auth/configuration-not-found' || error.code === 'auth/project-not-found') {
+    return new Error('Firebase Authentication 專案設定尚未完成，請在 nanu-nail 專案確認已啟用 Authentication。')
+  }
+  return new Error('Google 登入失敗，請稍後重試。')
 }
 
 export async function signOutCurrentUser () {
