@@ -255,35 +255,12 @@ export default {
       this.loadingCatalog = false
       return
     }
-    const pendingDraft = this.readPendingBookingDraft()
-    if (pendingDraft && pendingDraft.date) {
-      const [year, month] = pendingDraft.date.split('-').map(Number)
-      if (year && month >= 1 && month <= 12) {
-        this.calendarYear = year
-        this.calendarMonth = month
-      }
-    }
     try {
       const [services, settings] = await Promise.all([getServices(), getBookingSettings()])
       this.services = services
       this.settings = settings
-      this.selectedServiceId = pendingDraft && services.some(service => service.id === pendingDraft.serviceId)
-        ? pendingDraft.serviceId
-        : (services.length ? services[0].id : '')
-      await this.$nextTick()
-      if (pendingDraft) {
-        this.selectedAddOnQuantities = pendingDraft.selectedAddOnQuantities || {}
-        this.selectedDate = pendingDraft.date || ''
-        this.selectedHour = Number.isInteger(pendingDraft.selectedHour) ? pendingDraft.selectedHour : null
-        this.step = pendingDraft.step === 'confirm' ? 'confirm' : 'details'
-      }
+      this.selectedServiceId = services.length ? services[0].id : ''
       if (settings.configured && services.length) await this.loadCalendarAvailability()
-      if (pendingDraft && this.selectedDate && !this.availableHoursForDate(this.selectedDate).includes(this.selectedHour)) {
-        this.selectedDate = ''
-        this.selectedHour = null
-        this.step = 'details'
-        this.errorMessage = '登入完成，但原時段已不可預約；請重新選擇時段。'
-      }
     } catch (error) {
       this.catalogError = '請確認 Firestore 已啟用、安全規則已部署，且店家已建立公開服務資料。'
     } finally {
@@ -292,25 +269,6 @@ export default {
   },
   methods: {
     formatDuration,
-    readPendingBookingDraft () {
-      try {
-        const value = sessionStorage.getItem('nanuNail.pendingBookingDraft')
-        sessionStorage.removeItem('nanuNail.pendingBookingDraft')
-        return value ? JSON.parse(value) : null
-      } catch (error) {
-        sessionStorage.removeItem('nanuNail.pendingBookingDraft')
-        return null
-      }
-    },
-    savePendingBookingDraft () {
-      sessionStorage.setItem('nanuNail.pendingBookingDraft', JSON.stringify({
-        serviceId: this.selectedServiceId,
-        selectedAddOnQuantities: this.selectedAddOnQuantities,
-        date: this.selectedDate,
-        selectedHour: this.selectedHour,
-        step: this.step
-      }))
-    },
     addonQuantity (addonId) {
       return Number(this.selectedAddOnQuantities[addonId]) || 0
     },
@@ -405,13 +363,13 @@ export default {
       this.errorMessage = ''
       this.step = 'confirm'
     },
-    async submitBooking () {
+    async submitBooking (user = this.authState.user) {
       if (!this.selectedService) {
         this.step = 'details'
         this.errorMessage = '預約資料不完整，請重新確認後再送出。'
         return
       }
-      if (!this.authState.user) {
+      if (!user) {
         this.errorMessage = ''
         this.showLoginPrompt = true
         return
@@ -420,7 +378,7 @@ export default {
       this.errorMessage = ''
       try {
         this.bookingId = await createBooking({
-          user: this.authState.user,
+          user,
           service: this.selectedService,
           date: this.selectedDate,
           startHour: this.selectedHour,
@@ -451,8 +409,9 @@ export default {
     async loginAndReturn () {
       this.errorMessage = ''
       try {
-        this.savePendingBookingDraft()
-        await signInWithGoogle()
+        const user = await signInWithGoogle()
+        this.showLoginPrompt = false
+        await this.submitBooking(user)
       } catch (error) {
         this.errorMessage = error.message || 'Google 登入失敗，請稍後重試。'
       }

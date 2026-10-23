@@ -1,10 +1,9 @@
 import Vue from 'vue'
 import {
   GoogleAuthProvider,
-  getRedirectResult,
   getIdTokenResult,
   onAuthStateChanged,
-  signInWithRedirect,
+  signInWithPopup,
   signOut
 } from 'firebase/auth'
 import { doc, getDoc, serverTimestamp, setDoc } from 'firebase/firestore'
@@ -63,10 +62,6 @@ export function initializeAuth () {
     return null
   }
 
-  getRedirectResult(auth).catch((error) => {
-    authState.error = loginErrorMessage(error).message
-  })
-
   unsubscribeAuth = onAuthStateChanged(auth, async (user) => {
     authState.user = user
     authState.isAdmin = false
@@ -102,13 +97,17 @@ export async function signInWithGoogle () {
   provider.setCustomParameters({ prompt: 'select_account' })
 
   try {
-    await signInWithRedirect(auth, provider)
+    const credential = await signInWithPopup(auth, provider)
+    return credential.user
   } catch (error) {
     throw loginErrorMessage(error)
   }
 }
 
 function loginErrorMessage (error) {
+  if (error.code === 'auth/popup-closed-by-user') return new Error('Google 登入視窗已關閉，尚未完成登入。')
+  if (error.code === 'auth/popup-blocked') return new Error('瀏覽器封鎖了 Google 登入視窗，請允許彈出視窗後重試。')
+  if (error.code === 'auth/cancelled-popup-request') return new Error('Google 登入已取消，請稍後再試。')
   if (error.code === 'auth/unauthorized-domain') return new Error('此網站網域尚未加入 Firebase 授權網域。')
   if (error.code === 'auth/operation-not-allowed') return new Error('Firebase 尚未啟用 Google 登入提供者。')
   if (error.code && (error.code.includes('api-key') || error.code.includes('identitytoolkit'))) {
