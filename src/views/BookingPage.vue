@@ -102,14 +102,10 @@
           </div>
         </section>
 
-        <PageNotice v-if="!authState.loading && !authState.user" title="送出預約需要先登入">
-          登入後仍會保留目前選擇。預約送出後由店家確認，會員無法自行取消。
-        </PageNotice>
         <PageNotice v-if="errorMessage" title="尚未完成預約" tone="warning">{{ errorMessage }}</PageNotice>
         <div class="booking-actions">
-          <AuthControl v-if="!authState.loading && !authState.user" class="booking-login" />
           <button class="button button-dark" type="submit" :disabled="!canContinue || authState.loading">
-            {{ authState.user ? '確認預約資料' : '登入後確認預約' }} <span>↗</span>
+            確認預約資料 <span>↗</span>
           </button>
         </div>
       </form>
@@ -129,6 +125,7 @@
             <div><dt>預約狀態</dt><dd>待確認</dd></div>
           </dl>
           <p class="confirm-note">預約送出後無法由會員自行取消；如需取消，請聯絡店家管理員。</p>
+          <p v-if="!authState.user" class="confirm-note">按下「送出預約」後會先開啟 Google 登入；登入成功後會立即送出預約。</p>
           <PageNotice v-if="errorMessage" tone="warning">{{ errorMessage }}</PageNotice>
           <button class="button button-dark confirm-submit" type="button" :disabled="submitting" @click="submitBooking">
             {{ submitting ? '正在送出…' : '送出預約' }} <span>↗</span>
@@ -141,9 +138,8 @@
 </template>
 
 <script>
-import AuthControl from '../components/AuthControl.vue'
 import PageNotice from '../components/PageNotice.vue'
-import { authState } from '../services/auth'
+import { authState, signInWithGoogle } from '../services/auth'
 import { getServices } from '../services/catalog'
 import {
   createBooking,
@@ -157,7 +153,7 @@ import formatDuration from '../utils/formatDuration'
 
 export default {
   name: 'BookingPage',
-  components: { AuthControl, PageNotice },
+  components: { PageNotice },
   data () {
     const today = getTaipeiDateString()
     const todayParts = today.split('-').map(Number)
@@ -351,23 +347,20 @@ export default {
     },
     continueToConfirm () {
       this.errorMessage = ''
-      if (!this.authState.user) {
-        this.errorMessage = '請先使用 Google 帳號登入；登入完成後再確認預約。'
-        return
-      }
       this.step = 'confirm'
     },
     async submitBooking () {
-      if (!this.authState.user || !this.selectedService) {
+      if (!this.selectedService) {
         this.step = 'details'
-        this.errorMessage = '登入狀態已更新，請重新確認預約資料。'
+        this.errorMessage = '預約資料不完整，請重新確認後再送出。'
         return
       }
       this.submitting = true
       this.errorMessage = ''
       try {
+        const user = this.authState.user || await signInWithGoogle()
         this.bookingId = await createBooking({
-          user: this.authState.user,
+          user,
           service: this.selectedService,
           date: this.selectedDate,
           startHour: this.selectedHour,

@@ -97,7 +97,8 @@ export async function signInWithGoogle () {
   provider.setCustomParameters({ prompt: 'select_account' })
 
   try {
-    await signInWithPopup(auth, provider)
+    const credential = await signInWithPopup(auth, provider)
+    return credential.user
   } catch (error) {
     if (error.code === 'auth/popup-closed-by-user') throw new Error('Google 登入視窗提早關閉，請檢查彈出視窗是否被瀏覽器封鎖，並確認目前網站網址已加入 Firebase 授權網域。')
     if (error.code === 'auth/cancelled-popup-request') throw new Error('Google 登入視窗已取消，請稍候再試一次。')
