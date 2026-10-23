@@ -369,7 +369,7 @@ export default {
         this.errorMessage = '預約資料不完整，請重新確認後再送出。'
         return
       }
-      if (!user) {
+      if (!user || typeof user.uid !== 'string' || !user.uid) {
         this.errorMessage = ''
         this.showLoginPrompt = true
         return
@@ -410,6 +410,10 @@ export default {
       this.errorMessage = ''
       try {
         const user = await signInWithGoogle()
+        if (!user || typeof user.uid !== 'string' || !user.uid) {
+          this.errorMessage = '尚未完成登入，請使用 Google 帳號登入後再預約。'
+          return
+        }
         this.showLoginPrompt = false
         await this.submitBooking(user)
       } catch (error) {
