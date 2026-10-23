@@ -161,7 +161,7 @@ import {
   getBookingSettings,
   getTaipeiDateString
 } from '../services/bookings'
-import { firebaseConfigured } from '../services/firebase'
+import { auth, firebaseConfigured } from '../services/firebase'
 import formatDuration from '../utils/formatDuration'
 
 export default {
@@ -363,13 +363,16 @@ export default {
       this.errorMessage = ''
       this.step = 'confirm'
     },
-    async submitBooking (user = this.authState.user) {
+    async submitBooking (user) {
       if (!this.selectedService) {
         this.step = 'details'
         this.errorMessage = '預約資料不完整，請重新確認後再送出。'
         return
       }
-      if (!user || typeof user.uid !== 'string' || !user.uid) {
+      const bookingUser = user && typeof user.uid === 'string' && user.uid
+        ? user
+        : auth.currentUser
+      if (!bookingUser || typeof bookingUser.uid !== 'string' || !bookingUser.uid) {
         this.errorMessage = ''
         this.showLoginPrompt = true
         return
@@ -378,7 +381,7 @@ export default {
       this.errorMessage = ''
       try {
         this.bookingId = await createBooking({
-          user,
+          user: bookingUser,
           service: this.selectedService,
           date: this.selectedDate,
           startHour: this.selectedHour,
@@ -409,7 +412,8 @@ export default {
     async loginAndReturn () {
       this.errorMessage = ''
       try {
-        const user = await signInWithGoogle()
+        const signedInUser = await signInWithGoogle()
+        const user = auth.currentUser || signedInUser
         if (!user || typeof user.uid !== 'string' || !user.uid) {
           this.errorMessage = '尚未完成登入，請使用 Google 帳號登入後再預約。'
           return
