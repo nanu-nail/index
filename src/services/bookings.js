@@ -10,7 +10,7 @@ import {
   serverTimestamp,
   where
 } from 'firebase/firestore'
-import { db, firebaseConfigured } from './firebase'
+import { auth, db, firebaseConfigured } from './firebase'
 
 export const DEFAULT_STAFF_ID = 'primary'
 export const OPEN_HOUR = 10
@@ -138,7 +138,11 @@ export async function getBookingSettings () {
 
 export async function createBooking ({ user, service, date, startHour, designCategory, designWork, selectedAddOnQuantities = {}, settings = DEFAULT_BOOKING_SETTINGS }) {
   if (!firebaseConfigured) throw new Error('Firebase 尚未設定，無法送出預約。')
-  if (!user) throw new Error('請先使用 Google 帳號登入。')
+  const bookingUser = user && typeof user.uid === 'string' && user.uid ? user : auth.currentUser
+  if (!bookingUser || typeof bookingUser.uid !== 'string' || !bookingUser.uid) {
+    throw new Error('登入完成但無法取得會員 ID，請重新登入後再送出預約。')
+  }
+  const userId = bookingUser.uid
   if (!service || !Number.isInteger(startHour) || !getHourlyStartOptions(settings.openHour, settings.closeHour).includes(startHour)) {
     throw new Error('預約資料不完整，請重新選擇服務、日期與時段。')
   }
@@ -219,13 +223,13 @@ export async function createBooking ({ user, service, date, startHour, designCat
       lastAction: 'book',
       lastBookingId: bookingRef.id,
       lastStartHour: startHour,
-      lastUserId: user.uid,
+      lastUserId: userId,
       updatedAt: serverTimestamp()
     })
     transaction.set(bookingRef, {
-      userId: user.uid,
-      customerName: user.displayName || '',
-      customerEmail: user.email || '',
+      userId,
+      customerName: bookingUser.displayName || '',
+      customerEmail: bookingUser.email || '',
       staffId: DEFAULT_STAFF_ID,
       date: dateStart,
       startAt,
