@@ -1,0 +1,258 @@
+rules_version = '2';
+service cloud.firestore {
+  match /databases/{database}/documents {
+    function signedIn() {
+      return request.auth != null;
+    }
+
+    function isAdmin() {
+      return signedIn() && request.auth.token.admin == true;
+    }
+
+    function servicePath(serviceId) {
+      return /databases/$(database)/documents/services/$(serviceId);
+    }
+
+    function bookingSettingsPath() {
+      return /databases/$(database)/documents/businessSettings/booking;
+    }
+
+    function blockedDatePath(date) {
+      let dateId = string(date.toMillis());
+      return /databases/$(database)/documents/blockedDates/$(dateId);
+    }
+
+    function withinConfiguredHours(data) {
+      let localMidnight = data.date + duration.value(8, 'h');
+      let settings = get(bookingSettingsPath()).data;
+      return exists(bookingSettingsPath())
+        && data.date is timestamp
+        && data.startAt is timestamp
+        && data.endAt is timestamp
+        && localMidnight.hours() == 0
+        && localMidnight.minutes() == 0
+        && localMidnight.seconds() == 0
+        && data.startAt == data.date + duration.value(data.startHour, 'h')
+        && data.startAt > request.time
+        && data.endAt == data.startAt + duration.value(data.durationMinutes, 'm')
+        && data.startHour >= settings.openHour
+        && data.startHour < settings.closeHour
+        && data.startHour * 60 + data.durationMinutes <= settings.closeHour * 60
+        && (!settings.keys().hasAny(['openMonths']) || settings.openMonths.hasAny([localMidnight.year() * 100 + localMidnight.month()]))
+        && (!exists(blockedDatePath(data.date)) || get(blockedDatePath(data.date)).data.active != true);
+    }
+
+    function scheduleDayPath(staffId, date) {
+      let localDate = date + duration.value(8, 'h');
+      return /databases/$(database)/documents/scheduleDays/$(staffId)/years/$(localDate.year())/months/$(localDate.month())/days/$(localDate.day());
+    }
+
+    function bookingPath(bookingId) {
+      return /databases/$(database)/documents/bookings/$(bookingId);
+    }
+
+    function validServiceSnapshot(data) {
+      return exists(servicePath(data.serviceId))
+        && get(servicePath(data.serviceId)).data.active == true
+        && get(servicePath(data.serviceId)).data.name == data.serviceName
+        && get(servicePath(data.serviceId)).data.price == data.price
+        && get(servicePath(data.serviceId)).data.durationMinutes == data.durationMinutes
+        && (!data.keys().hasAny(['selectedAddOns'])
+          || (data.selectedAddOns is list
+            && get(servicePath(data.serviceId)).data.addOns is list
+            && data.selectedAddOns.size() <= get(servicePath(data.serviceId)).data.addOns.size() * 10
+            && get(servicePath(data.serviceId)).data.addOns.hasAll(data.selectedAddOns)));
+    }
+
+    function validBookingShape(data) {
+      return data.keys().hasAll([
+          'userId', 'customerName', 'customerEmail', 'staffId', 'date', 'startAt', 'endAt', 'startHour',
+          'serviceId', 'serviceName', 'price', 'durationMinutes', 'designCategory',
+          'designWorkTitle', 'status', 'createdAt', 'updatedAt'
+        ])
+        && data.keys().hasOnly([
+          'userId', 'customerName', 'customerEmail', 'staffId', 'date', 'startAt', 'endAt', 'startHour',
+          'serviceId', 'serviceName', 'price', 'durationMinutes', 'designCategory',
+          'designWorkTitle', 'status', 'createdAt', 'updatedAt', 'confirmedAt', 'cancelledAt', 'selectedAddOns'
+        ])
+        && data.staffId == 'primary'
+        && data.date is timestamp
+        && data.startHour is int
+        && data.startHour >= 0 && data.startHour < 24
+        && data.serviceId is string
+        && data.serviceName is string
+        && data.price is number && data.price >= 0
+        && data.durationMinutes is int && data.durationMinutes > 0 && data.durationMinutes <= 240
+        && data.designCategory is string
+        && data.designWorkTitle is string
+        && (!data.keys().hasAny(['selectedAddOns']) || data.selectedAddOns is list)
+        && data.createdAt is timestamp
+        && data.updatedAt is timestamp;
+    }
+
+    function pairedScheduleBooking(bookingId, staffId, date, hour, userId, action) {
+      let path = bookingPath(bookingId);
+      return existsAfter(path)
+        && getAfter(path).data.userId == userId
+        && getAfter(path).data.staffId == staffId
+        && getAfter(path).data.date == date
+        && getAfter(path).data.startHour == hour
+        && (action == 'cancel' || withinConfiguredHours(getAfter(path).data))
+        && (action == 'book' ? getAfter(path).data.status == 'pending' : getAfter(path).data.status == 'cancelled');
+    }
+
+    function scheduleDayShape(data) {
+      return data.keys().hasAll([
+          'staffId', 'date', 'startHours', 'lastAction', 'lastBookingId',
+          'lastStartHour', 'lastUserId', 'updatedAt'
+        ])
+        && data.keys().hasOnly([
+          'staffId', 'date', 'startHours', 'lastAction', 'lastBookingId',
+          'lastStartHour', 'lastUserId', 'updatedAt'
+        ])
+        && data.staffId == 'primary'
+        && data.date is timestamp
+        && data.startHours is list
+        && data.lastAction in ['book', 'cancel']
+        && data.lastBookingId is string
+        && data.lastStartHour is int
+        && data.lastUserId is string
+        && data.updatedAt is timestamp;
+    }
+
+    function noExistingNearbyStart(hour) {
+      return !resource.data.startHours.hasAny([
+        hour - 3, hour - 2, hour - 1, hour + 1, hour + 2, hour + 3
+      ]);
+    }
+
+    function bookingMatchesScheduleAfter(bookingId, data) {
+      let path = scheduleDayPath(data.staffId, data.date);
+      return existsAfter(path)
+        && getAfter(path).data.lastAction == 'book'
+        && getAfter(path).data.lastBookingId == bookingId
+        && getAfter(path).data.lastStartHour == data.startHour
+        && getAfter(path).data.lastUserId == request.auth.uid
+        && getAfter(path).data.startHours.hasAny([data.startHour]);
+    }
+
+    function bookIntoScheduleDay() {
+      let data = request.resource.data;
+      return signedIn()
+        && scheduleDayShape(data)
+        && data.lastAction == 'book'
+        && data.lastUserId == request.auth.uid
+        && data.lastStartHour >= 0 && data.lastStartHour < 24
+        && data.startHours.size() == 1
+        && data.startHours.hasAny([data.lastStartHour])
+        && pairedScheduleBooking(data.lastBookingId, data.staffId, data.date, data.lastStartHour, request.auth.uid, 'book');
+    }
+
+    function addBookingToScheduleDay() {
+      let data = request.resource.data;
+      let hour = data.lastStartHour;
+      return signedIn()
+        && scheduleDayShape(data)
+        && data.lastAction == 'book'
+        && data.lastUserId == request.auth.uid
+        && hour >= 0 && hour < 24
+        && request.resource.data.startHours.size() == resource.data.startHours.size() + 1
+        && request.resource.data.startHours.hasAll(resource.data.startHours)
+        && !resource.data.startHours.hasAny([hour])
+        && noExistingNearbyStart(hour)
+        && pairedScheduleBooking(data.lastBookingId, data.staffId, data.date, hour, request.auth.uid, 'book')
+        && request.resource.data.diff(resource.data).affectedKeys().hasOnly([
+          'startHours', 'lastAction', 'lastBookingId', 'lastStartHour', 'lastUserId', 'updatedAt'
+        ]);
+    }
+
+    function cancelFromScheduleDay() {
+      let data = request.resource.data;
+      let hour = data.lastStartHour;
+      return isAdmin()
+        && scheduleDayShape(data)
+        && data.lastAction == 'cancel'
+        && hour >= 0 && hour < 24
+        && resource.data.startHours.hasAny([hour])
+        && request.resource.data.startHours.size() == resource.data.startHours.size() - 1
+        && !request.resource.data.startHours.hasAny([hour])
+        && request.resource.data.diff(resource.data).affectedKeys().hasOnly([
+          'startHours', 'lastAction', 'lastBookingId', 'lastStartHour', 'lastUserId', 'updatedAt'
+        ])
+        && pairedScheduleBooking(data.lastBookingId, data.staffId, data.date, hour, data.lastUserId, 'cancel');
+    }
+
+    match /users/{userId} {
+      allow read: if signedIn() && (request.auth.uid == userId || isAdmin());
+      allow create: if signedIn()
+        && request.auth.uid == userId
+        && request.resource.data.keys().hasOnly(['uid', 'displayName', 'photoURL', 'email', 'createdAt', 'updatedAt'])
+        && request.resource.data.uid == userId;
+      allow update: if signedIn()
+        && request.auth.uid == userId
+        && request.resource.data.diff(resource.data).affectedKeys().hasOnly(['displayName', 'photoURL', 'email', 'updatedAt']);
+      allow delete: if false;
+    }
+
+    match /services/{serviceId} {
+      allow read: if resource.data.active == true || isAdmin();
+      allow create, update, delete: if isAdmin();
+    }
+
+    match /portfolios/{workId} {
+      allow read: if resource.data.active == true || isAdmin();
+      allow create, update, delete: if isAdmin();
+    }
+
+    match /businessSettings/{settingId} {
+      allow read: if true;
+      allow write: if isAdmin();
+    }
+
+    match /blockedDates/{blockedDateId} {
+      allow read: if true;
+      allow write: if isAdmin();
+    }
+
+    match /staff/{staffId} {
+      allow read: if true;
+      allow write: if isAdmin();
+    }
+
+    match /{path=**}/days/{dayId} {
+      allow read: if resource.data.staffId == 'primary';
+    }
+
+    match /scheduleDays/{staffId}/years/{year}/months/{month}/days/{day} {
+      allow read: if true;
+      allow create: if bookIntoScheduleDay() || isAdmin();
+      allow update: if addBookingToScheduleDay() || cancelFromScheduleDay() || isAdmin();
+      allow delete: if isAdmin();
+    }
+
+    match /bookings/{bookingId} {
+      allow read: if isAdmin() || (signedIn() && resource.data.userId == request.auth.uid);
+      allow create: if signedIn()
+        && request.resource.data.userId == request.auth.uid
+        && request.resource.data.status == 'pending'
+        && validBookingShape(request.resource.data)
+        && withinConfiguredHours(request.resource.data)
+        && validServiceSnapshot(request.resource.data)
+        && bookingMatchesScheduleAfter(bookingId, request.resource.data);
+      allow update: if isAdmin()
+        && request.resource.data.diff(resource.data).affectedKeys().hasOnly([
+          'status', 'updatedAt', 'confirmedAt', 'cancelledAt'
+        ])
+        && request.resource.data.status in ['confirmed', 'cancelled', 'completed']
+        && ((resource.data.status == 'pending' && request.resource.data.status in ['confirmed', 'cancelled'])
+          || (resource.data.status == 'confirmed' && request.resource.data.status in ['cancelled', 'completed']))
+        && (request.resource.data.status != 'cancelled'
+          || !getAfter(scheduleDayPath(resource.data.staffId, resource.data.date)).data.startHours.hasAny([resource.data.startHour]));
+      allow delete: if false;
+    }
+
+    match /{document=**} {
+      allow read, write: if false;
+    }
+  }
+}
