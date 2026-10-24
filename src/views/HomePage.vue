@@ -55,7 +55,7 @@
         <article v-for="(service, index) in services" :key="service.name" class="service-card">
           <span class="service-number">0{{ index + 1 }}</span>
           <div><h3>{{ service.name }}</h3><p>{{ service.description }}</p></div>
-          <div class="service-meta"><strong>{{ Number(service.price) === 0 ? '私訊報價' : `NT$ ${service.price}` }}</strong><span>施作時間約 {{ formatDuration(Math.max(0, Number(service.durationMinutes || service.duration) - 30)) }}</span></div>
+          <div class="service-meta"><strong>{{ Number(service.price) === 0 ? '私訊報價' : `NT$ ${service.price}` }}</strong><span>{{ formatDuration(Math.max(0, Number(service.durationMinutes || service.duration) - 30)) }}</span></div>
           <router-link class="service-arrow" to="/booking" :aria-label="`預約${service.name}`">↗</router-link>
         </article>
       </div>
