@@ -36,3 +36,5 @@
 .portfolio .section-heading{margin-bottom:8px}
 .intro#about{max-width:1040px}.intro#about>p:not(.eyebrow){max-width:900px}
 @media(max-width:760px){.intro#about{max-width:780px}.intro#about>p:not(.eyebrow){max-width:510px}}
+.booking-note-details{max-width:900px;margin:24px auto 0;text-align:left;color:var(--ink);font-size:15px;line-height:1.9}.booking-note-details p{margin:0 0 10px}.booking-note-details hr{margin:20px 0;border:0;border-top:1px solid var(--line)}.booking-note-details ol{margin:0;padding-left:1.5em}.booking-note-details li{padding-left:4px;margin:0 0 7px}
+@media(max-width:760px){.booking-note-details{font-size:14.5px;line-height:1.8}}
