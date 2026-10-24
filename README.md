@@ -1,4 +1,4 @@
-# NANU NAIL｜美甲預約網站
+# 𝚗𝚊𝚗𝚞.｜美甲預約網站
 
 以 Vue 2.7、Vue CLI、Vue Router 3、Firebase Authentication 與 Cloud Firestore 建置。前端可部署至 GitHub Pages；GitHub Pages 不承載 Firebase 機密或資料庫規則。
 

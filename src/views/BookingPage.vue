@@ -1,6 +1,6 @@
 <template>
   <main class="booking-page">
-    <router-link class="back-home" to="/">← NANU NAIL</router-link>
+    <router-link class="back-home" to="/">← 𝚗𝚊𝚗𝚞.</router-link>
     <header class="booking-heading">
       <p class="eyebrow">ONLINE BOOKING</p>
       <h1>為自己預約一段時光</h1>
@@ -32,7 +32,7 @@
         <h2>預約已送出</h2>
         <p>店家確認前，預約狀態為「待確認」。請保留以下預約編號。</p>
         <div class="booking-number"><span>預約編號</span><strong>{{ bookingId }}</strong></div>
-        <router-link class="button button-dark" to="/member">查看我的預約 <span>↗</span></router-link>
+        <router-link class="button button-dark" to="/member">查看我的預約</router-link>
       </div>
 
       <form v-else class="booking-form" @submit.prevent="continueToConfirm">
@@ -49,7 +49,7 @@
           <div v-if="selectedService && selectedService.addOns && selectedService.addOns.length" class="addon-selection">
             <h3>加購選項（可複選及選擇數量）</h3>
             <div v-for="addon in selectedService.addOns" :key="addon.id" class="addon-option">
-              <label class="addon-option-check"><input type="checkbox" :checked="addonQuantity(addon.id) > 0" @change="setAddonChecked(addon.id, $event.target.checked)"><span>{{ addon.name }}</span><strong>+NT$ {{ addon.price }}／個</strong></label>
+              <label class="addon-option-check"><input type="checkbox" :checked="addonQuantity(addon.id) > 0" @change="setAddonChecked(addon.id, $event.target.checked)"><span>{{ addon.name }}</span><strong>+NT$ {{ addon.price }}/個</strong></label>
               <select :value="addonQuantity(addon.id)" :disabled="addonQuantity(addon.id) === 0" :aria-label="`${addon.name}數量`" @change="setAddonQuantity(addon.id, $event.target.value)">
                 <option value="0">0</option>
                 <option v-for="quantity in getAddonQuantityOptions()" :key="quantity" :value="quantity">{{ quantity }}</option>
@@ -105,7 +105,7 @@
         <PageNotice v-if="errorMessage" title="尚未完成預約" tone="warning">{{ errorMessage }}</PageNotice>
         <div class="booking-actions">
           <button class="button button-dark" type="submit" :disabled="!canContinue || authState.loading">
-            確認預約資料 <span>↗</span>
+            確認預約資料
           </button>
         </div>
       </form>
@@ -128,7 +128,7 @@
           <p v-if="!authState.user" class="confirm-note">按下「送出預約」後會先開啟 Google 登入；登入成功回到此頁後，請再次按下「送出預約」完成預約。</p>
           <PageNotice v-if="errorMessage" tone="warning">{{ errorMessage }}</PageNotice>
           <button class="button button-dark confirm-submit" type="button" :disabled="submitting" @click="submitBooking">
-            {{ submitting ? '正在送出…' : '送出預約' }} <span>↗</span>
+            {{ submitting ? '正在送出…' : '送出預約' }}
           </button>
         </div>
       </section>
@@ -141,12 +141,12 @@
           <p>登入後會回到預約確認頁，保留目前選擇的服務與時段；請再次按下「送出預約」完成預約。</p>
           <PageNotice v-if="errorMessage" tone="warning">{{ errorMessage }}</PageNotice>
           <button class="button button-dark confirm-submit" type="button" :disabled="submitting" @click="loginAndReturn">
-            使用 Google 登入 <span>↗</span>
+            使用 Google 登入
           </button>
         </div>
       </section>
     </template>
-    <router-link class="text-link" to="/">返回首頁 <span>↗</span></router-link>
+    <router-link class="text-link" to="/">返回首頁</router-link>
   </main>
 </template>
 

@@ -2,7 +2,7 @@
   <div class="auth-control">
     <span v-if="authState.loading" class="auth-loading">確認登入狀態…</span>
     <button v-else-if="!authState.user" class="auth-login" type="button" @click="login">
-      Google 登入 <span aria-hidden="true">↗</span>
+      Google 登入
     </button>
     <div v-else class="auth-signed-in">
       <router-link v-if="showProfile" class="auth-profile" to="/member" :title="(authState.memberProfile && authState.memberProfile.customerName) || '會員中心'">

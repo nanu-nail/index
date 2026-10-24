@@ -1,9 +1,8 @@
 <template>
   <main>
     <header class="site-header">
-      <a class="brand" href="#top" aria-label="NANU NAIL 首頁">
-        <span class="brand-mark">n.</span>
-        <span>NANU NAIL</span>
+      <a class="brand" href="#top" aria-label="𝚗𝚊𝚗𝚞. 首頁">
+        <span>𝚗𝚊𝚗𝚞.</span>
       </a>
       <nav class="desktop-nav" aria-label="主導覽">
         <a href="#about">關於我們</a><a href="#services">服務項目</a>
@@ -25,7 +24,7 @@
         <a href="#services" @click="mobileMenuOpen = false">服務項目</a>
         <a href="#portfolio" @click="mobileMenuOpen = false">作品欣賞</a>
         <a href="#booking-notes" @click="mobileMenuOpen = false">預約須知</a>
-        <router-link to="/booking" @click.native="mobileMenuOpen = false">立即預約 <span>↗</span></router-link>
+        <router-link to="/booking" @click.native="mobileMenuOpen = false">立即預約</router-link>
         <AuthControl class="mobile-auth" />
       </nav>
     </header>
@@ -35,11 +34,10 @@
         <p class="eyebrow">A LITTLE TIME FOR YOURSELF</p>
         <h1>讓日常的每一刻，<br><em>都從指尖開始溫柔。</em></h1>
         <p class="hero-description">為自己留一點時間，在柔和色彩與細緻工藝裡，找到剛剛好的日常美感。</p>
-        <router-link class="button button-dark" to="/booking">預約一段美好時光 <span>↗</span></router-link>
+        <router-link class="button button-dark" to="/booking">預約一段美好時光</router-link>
         <p class="hero-note">服務資訊為暫定內容，正式開放預約前可再修改。</p>
       </div>
-      <div class="hero-image" role="img" aria-label="柔和色調的美甲工作室情境照片">
-        <div class="image-caption"><span>01 / 03</span><span>quiet beauty, made for you</span></div>
+      <div class="hero-image" :style="heroImageStyle" role="img" aria-label="柔和色調的美甲工作室情境照片">
       </div>
       <div class="hero-index">EST. WITH CARE <span>✳</span> TAIWAN</div>
     </section>
@@ -47,8 +45,8 @@
     <section id="about" class="intro section-wrap">
       <p class="eyebrow">THE STUDIO</p>
       <h2>細節裡的用心，<br>讓喜歡的風格自然發生。</h2>
-      <p>NANU NAIL 以日常美感為靈感。從色彩、線條到每一個小細節，陪你找到自在又耐看的指尖風格。</p>
-      <a class="text-link" href="#portfolio">看看我們的作品 <span>↗</span></a>
+      <p>𝚗𝚊𝚗𝚞. 以日常美感為靈感。從色彩、線條到每一個小細節，陪你找到自在又耐看的指尖風格。</p>
+      <a class="text-link" href="#portfolio">看看我們的作品</a>
     </section>
 
     <section id="services" class="services section-wrap">
@@ -94,14 +92,14 @@
 
     <section id="booking-notes" class="booking-band">
       <p class="eyebrow">BOOKING NOTES</p><h2>慢慢挑選，<br>再把時段留給自己。</h2>
-      <router-link class="button button-light" to="/booking">選擇服務並預約 <span>↗</span></router-link>
+      <router-link class="button button-light" to="/booking">選擇服務並預約</router-link>
       <p class="policy-note">取消需由管理員協助。其他預約規則、遲到及付款政策仍待店家確認。</p>
     </section>
 
     <footer id="member" class="site-footer">
-      <div><a class="brand footer-brand" href="#top"><span class="brand-mark">n.</span><span>NANU NAIL</span></a><p>留一點時間，讓喜歡慢慢發生。</p></div>
+      <div><a class="brand footer-brand" href="#top"><span>𝚗𝚊𝚗𝚞.</span></a><p>留一點時間，讓喜歡慢慢發生。</p></div>
       <div class="footer-info"><p>聯絡資訊、地址、營業時間與社群連結<br>皆為待替換的暫定資料。</p><a href="#top">回到頁首 ↑</a></div>
-      <div class="footer-bottom"><span>© 2026 NANU NAIL</span><span>MADE WITH CARE</span></div>
+      <div class="footer-bottom"><span>© 2026 𝚗𝚊𝚗𝚞.</span><span>MADE WITH CARE</span></div>
     </footer>
   </main>
 </template>
@@ -136,6 +134,11 @@ export default {
     }
   },
   computed: {
+    heroImageStyle () {
+      return {
+        backgroundImage: `linear-gradient(160deg,rgba(48,42,39,.03),rgba(48,42,39,.16)),url("${process.env.BASE_URL}banner.jpg")`
+      }
+    },
     workCategories () {
       return ['全部', ...new Set(this.works.map(work => work.category).filter(Boolean))]
     },

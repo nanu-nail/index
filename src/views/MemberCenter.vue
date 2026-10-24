@@ -1,6 +1,6 @@
 <template>
   <main class="flow-page member-page">
-    <router-link class="back-home" to="/">← NANU NAIL</router-link>
+    <router-link class="back-home" to="/">← 𝚗𝚊𝚗𝚞.</router-link>
     <p class="eyebrow">MEMBER</p>
     <h1>會員中心</h1>
     <p class="flow-lead">查看個人預約紀錄與預約狀態。</p>
@@ -28,7 +28,7 @@
         <div v-else-if="bookings.length === 0" class="empty-state">
           <span aria-hidden="true">✳</span><h3>還沒有預約紀錄</h3>
           <p>挑選喜歡的服務與時段，為自己留一點時間。</p>
-          <router-link class="button button-dark" to="/booking">開始預約 <span>↗</span></router-link>
+          <router-link class="button button-dark" to="/booking">開始預約</router-link>
         </div>
         <div v-else class="booking-list">
           <article v-for="booking in bookings" :key="booking.id" class="booking-item">
@@ -39,7 +39,7 @@
         </div>
       </section>
     </template>
-    <router-link v-if="authState.user || !firebaseConfigured" class="text-link" to="/">返回首頁 <span>↗</span></router-link>
+    <router-link v-if="authState.user || !firebaseConfigured" class="text-link" to="/">返回首頁</router-link>
   </main>
 </template>
 
@@ -116,5 +116,5 @@ export default {
 .booking-date{display:grid;gap:6px}.booking-date strong{font-size:15.666px;font-weight:500}.booking-date span,.booking-description p{color:var(--muted);font-size:13.666px}.booking-description h3{margin:0 0 6px;font:16px var(--serif);font-weight:400}.booking-description p{margin:0}.booking-state{display:grid;justify-items:end;gap:8px}.booking-state strong{font-size:14.666px;font-weight:500}
 .status{padding:5px 9px;border-radius:18px;background:#f4ece6;color:#8d6658;font-size:12.666px}.status--confirmed{background:#e9f1e8;color:#587255}.status--cancelled{background:#f4e9e7;color:#935c52}.status--completed{background:#eeeae5;color:#756960}
 .text-link{display:inline-block;margin-top:28px;font-size:14.666px}.text-link span{margin-left:8px}
-@media(max-width:600px){.flow-page{padding-top:34px}.back-home{margin-bottom:34px}.booking-item{grid-template-columns:76px 1fr auto;gap:10px;padding:16px 0}.booking-description h3{font-size:15.333px}.booking-state strong{font-size:13.666px}.member-profile{margin:24px 0 42px}.member-logout{font-size:12.666px}}
+@media(max-width:600px){.flow-page{padding-top:34px}.back-home{margin-bottom:34px}.booking-item{grid-template-columns:88px minmax(0,1fr) 68px;gap:9px;padding:16px 0}.booking-date strong{font-size:13.333px;white-space:nowrap;line-height:1.45}.booking-date span{font-size:12.333px;white-space:nowrap}.booking-description{min-width:0}.booking-description h3{font-size:15.333px}.booking-state{min-width:0}.booking-state strong{max-width:68px;font-size:12.333px;text-align:right;overflow-wrap:anywhere}.member-profile{margin:24px 0 42px}.member-logout{font-size:12.666px}}
 </style>

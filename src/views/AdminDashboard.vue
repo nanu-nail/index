@@ -1,6 +1,6 @@
 <template>
   <main class="admin-page">
-    <router-link class="back-home" to="/">← NANU NAIL</router-link>
+    <router-link class="back-home" to="/">← 𝚗𝚊𝚗𝚞.</router-link>
     <header class="admin-heading"><p class="eyebrow">STUDIO ADMIN</p><h1>店家管理</h1><p>管理預約、服務內容、作品展示與公休日。</p></header>
 
     <PageNotice v-if="!firebaseConfigured" title="管理功能尚未啟用" tone="warning">
@@ -146,7 +146,7 @@
         </section>
       </template>
     </template>
-    <router-link class="text-link" to="/">返回首頁 <span>↗</span></router-link>
+    <router-link class="text-link" to="/">返回首頁</router-link>
   </main>
 </template>
 
