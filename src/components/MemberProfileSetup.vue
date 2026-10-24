@@ -41,11 +41,11 @@ export default {
 <style scoped>
 .profile-overlay{position:fixed;inset:0;z-index:1000;display:grid;place-items:center;padding:20px;background:rgba(39,33,30,.55)}
 .profile-card{width:min(440px,100%);max-height:calc(100vh - 40px);overflow:auto;padding:32px;background:var(--paper);box-shadow:0 18px 60px rgba(0,0,0,.18)}
-.eyebrow{margin:0 0 10px;color:#a17f72;font-size:10px;letter-spacing:.2em}
+.eyebrow{margin:0 0 10px;color:#a17f72;font-size:12.666px;letter-spacing:.2em}
 h2{margin:0;font:400 27px var(--serif)}
-.description{margin:12px 0 24px;color:var(--muted);font-size:12px;line-height:1.9}
-label{display:grid;gap:8px;margin:16px 0;color:var(--ink);font-size:12px}
-input{width:100%;padding:13px;border:1px solid var(--line);border-radius:0;background:#fffdfa;color:var(--ink);font:14px var(--sans)}
+.description{margin:12px 0 24px;color:var(--muted);font-size:14.666px;line-height:1.9}
+label{display:grid;gap:8px;margin:16px 0;color:var(--ink);font-size:14.666px}
+input{width:100%;padding:13px;border:1px solid var(--line);border-radius:0;background:#fffdfa;color:var(--ink);font:15.333px var(--sans)}
 button{width:100%;margin-top:10px;border:0;cursor:pointer}
 button:disabled{opacity:.6;cursor:wait}
 @media(max-width:500px){.profile-card{padding:25px 20px}}

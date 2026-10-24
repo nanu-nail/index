@@ -102,19 +102,19 @@ export default {
 
 <style scoped>
 .flow-page{width:min(860px,88%);min-height:65vh;margin:0 auto;padding:56px 0 88px}
-.back-home{display:inline-block;margin-bottom:48px;color:var(--muted);font-size:12px}
+.back-home{display:inline-block;margin-bottom:48px;color:var(--muted);font-size:14.666px}
 .flow-page h1{margin:0 0 12px;font:400 clamp(28px,5vw,42px)/1.5 var(--serif);letter-spacing:.08em}
-.flow-lead{margin:0 0 32px;color:var(--muted);font-size:13px;line-height:2}
+.flow-lead{margin:0 0 32px;color:var(--muted);font-size:15.666px;line-height:2}
 .member-auth{margin-top:22px}
 .member-profile{display:flex;align-items:center;gap:14px;margin:30px 0 56px;padding:18px 0;border-top:1px solid var(--line);border-bottom:1px solid var(--line)}
 .member-profile>img{width:48px;height:48px;border-radius:50%;object-fit:cover}
-.member-profile>div{display:grid;gap:5px;min-width:0}.member-profile strong{font:16px var(--serif);font-weight:400}.member-profile span{color:var(--muted);font-size:11px}
+.member-profile>div{display:grid;gap:5px;min-width:0}.member-profile strong{font:16px var(--serif);font-weight:400}.member-profile span{color:var(--muted);font-size:13.666px}
 .member-logout{margin-left:auto}.history-heading{margin-bottom:22px}.history-heading .eyebrow{margin-bottom:8px}.history-heading h2{margin:0;font:400 24px var(--serif)}
-.loading-state,.empty-state{padding:32px 0;color:var(--muted);font-size:13px}
-.empty-state{text-align:center;padding:42px 20px;background:var(--cream)}.empty-state>span{color:#a4796b;font-size:22px}.empty-state h3{margin:12px 0 8px;font:18px var(--serif);font-weight:400;color:var(--ink)}.empty-state p{font-size:12px;line-height:1.8}.empty-state .button{margin-top:10px}
+.loading-state,.empty-state{padding:32px 0;color:var(--muted);font-size:15.666px}
+.empty-state{text-align:center;padding:42px 20px;background:var(--cream)}.empty-state>span{color:#a4796b;font-size:22px}.empty-state h3{margin:12px 0 8px;font:18px var(--serif);font-weight:400;color:var(--ink)}.empty-state p{font-size:14.666px;line-height:1.8}.empty-state .button{margin-top:10px}
 .booking-list{border-top:1px solid var(--line)}.booking-item{display:grid;grid-template-columns:120px 1fr auto;align-items:center;gap:16px;padding:20px 8px;border-bottom:1px solid var(--line)}
-.booking-date{display:grid;gap:6px}.booking-date strong{font-size:13px;font-weight:500}.booking-date span,.booking-description p{color:var(--muted);font-size:11px}.booking-description h3{margin:0 0 6px;font:16px var(--serif);font-weight:400}.booking-description p{margin:0}.booking-state{display:grid;justify-items:end;gap:8px}.booking-state strong{font-size:12px;font-weight:500}
-.status{padding:5px 9px;border-radius:18px;background:#f4ece6;color:#8d6658;font-size:10px}.status--confirmed{background:#e9f1e8;color:#587255}.status--cancelled{background:#f4e9e7;color:#935c52}.status--completed{background:#eeeae5;color:#756960}
-.text-link{display:inline-block;margin-top:28px;font-size:12px}.text-link span{margin-left:8px}
-@media(max-width:600px){.flow-page{padding-top:34px}.back-home{margin-bottom:34px}.booking-item{grid-template-columns:76px 1fr auto;gap:10px;padding:16px 0}.booking-description h3{font-size:14px}.booking-state strong{font-size:11px}.member-profile{margin:24px 0 42px}.member-logout{font-size:10px}}
+.booking-date{display:grid;gap:6px}.booking-date strong{font-size:15.666px;font-weight:500}.booking-date span,.booking-description p{color:var(--muted);font-size:13.666px}.booking-description h3{margin:0 0 6px;font:16px var(--serif);font-weight:400}.booking-description p{margin:0}.booking-state{display:grid;justify-items:end;gap:8px}.booking-state strong{font-size:14.666px;font-weight:500}
+.status{padding:5px 9px;border-radius:18px;background:#f4ece6;color:#8d6658;font-size:12.666px}.status--confirmed{background:#e9f1e8;color:#587255}.status--cancelled{background:#f4e9e7;color:#935c52}.status--completed{background:#eeeae5;color:#756960}
+.text-link{display:inline-block;margin-top:28px;font-size:14.666px}.text-link span{margin-left:8px}
+@media(max-width:600px){.flow-page{padding-top:34px}.back-home{margin-bottom:34px}.booking-item{grid-template-columns:76px 1fr auto;gap:10px;padding:16px 0}.booking-description h3{font-size:15.333px}.booking-state strong{font-size:13.666px}.member-profile{margin:24px 0 42px}.member-logout{font-size:12.666px}}
 </style>

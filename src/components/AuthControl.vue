@@ -48,13 +48,13 @@ export default {
 </script>
 
 <style scoped>
-.auth-control{font-size:12px}
+.auth-control{font-size:14.666px}
 .auth-loading{color:var(--muted);white-space:nowrap}
 .auth-login,.auth-logout{padding:0;border:0;background:none;color:inherit;font:inherit;cursor:pointer}
 .auth-login span{margin-left:6px}
 .auth-signed-in,.auth-profile{display:flex;align-items:center;gap:9px}
 .auth-profile{max-width:180px;white-space:nowrap;overflow:hidden;text-overflow:ellipsis}
 .auth-profile img{width:28px;height:28px;border-radius:50%;object-fit:cover}
-.auth-logout{color:var(--muted);font-size:11px}
-.auth-error{max-width:260px;margin:8px 0;color:#9b5145;font-size:11px;line-height:1.6}
+.auth-logout{color:var(--muted);font-size:13.666px}
+.auth-error{max-width:260px;margin:8px 0;color:#9b5145;font-size:13.666px;line-height:1.6}
 </style>
