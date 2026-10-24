@@ -28,8 +28,11 @@
 @media(max-width:760px){.header-auth{display:none}.lightbox-content{padding:12px}.lightbox-art{height:48vh}}
 .hero-image{overflow:hidden;background:var(--cream)}.hero-slide{position:absolute;inset:0;width:100%;height:100%;object-fit:contain;opacity:0;transition:opacity 1s ease;pointer-events:none}.hero-slide--active{opacity:1}
 .portfolio-grid .work-art{height:380px}
-@media(max-width:760px){.portfolio-grid .work-art{height:280px}}
-@media(max-width:380px){.portfolio-grid .work-art{height:230px}}
+@media(max-width:760px){.portfolio-grid .work-art{height:140px}}
+@media(max-width:380px){.portfolio-grid .work-art{height:140px}}
+.work-caption{padding-top:4px}
+@media(max-width:760px){.work-2{padding-top:56px}.work-3{margin-top:-56px}}
 .hero h1 em{white-space:nowrap}
+.portfolio .section-heading{margin-bottom:8px}
 .intro#about{max-width:1040px}.intro#about>p:not(.eyebrow){max-width:900px}
 @media(max-width:760px){.intro#about{max-width:780px}.intro#about>p:not(.eyebrow){max-width:510px}}
