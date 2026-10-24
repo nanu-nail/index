@@ -125,7 +125,7 @@
             <div><dt>預約狀態</dt><dd>待確認</dd></div>
           </dl>
           <p class="confirm-note">預約送出後無法由會員自行取消；如需取消，請聯絡店家管理員。</p>
-          <p v-if="!authState.user" class="confirm-note">按下「送出預約」後會先開啟 Google 登入；登入成功後會立即送出預約。</p>
+          <p v-if="!authState.user" class="confirm-note">按下「送出預約」後會先開啟 Google 登入；登入成功回到此頁後，請再次按下「送出預約」完成預約。</p>
           <PageNotice v-if="errorMessage" tone="warning">{{ errorMessage }}</PageNotice>
           <button class="button button-dark confirm-submit" type="button" :disabled="submitting" @click="submitBooking">
             {{ submitting ? '正在送出…' : '送出預約' }} <span>↗</span>
@@ -138,7 +138,7 @@
           <button class="confirm-close" type="button" aria-label="返回" @click="showLoginPrompt = false">← 返回</button>
           <p class="eyebrow">MEMBER SIGN IN</p>
           <h2 id="login-prompt-title">請登入後再預約</h2>
-          <p>登入後會回到這個預約頁面，並保留目前選擇的服務與時段。</p>
+          <p>登入後會回到預約確認頁，保留目前選擇的服務與時段；請再次按下「送出預約」完成預約。</p>
           <PageNotice v-if="errorMessage" tone="warning">{{ errorMessage }}</PageNotice>
           <button class="button button-dark confirm-submit" type="button" :disabled="submitting" @click="loginAndReturn">
             使用 Google 登入 <span>↗</span>
@@ -419,7 +419,6 @@ export default {
           return
         }
         this.showLoginPrompt = false
-        await this.submitBooking(user)
       } catch (error) {
         this.errorMessage = error.message || 'Google 登入失敗，請稍後重試。'
       }
