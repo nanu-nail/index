@@ -62,30 +62,20 @@
     </section>
 
     <section id="portfolio" class="portfolio section-wrap">
-      <div class="section-heading"><div><p class="eyebrow">SELECTED WORKS</p><h2>把喜歡，留在指尖。</h2></div><p>{{ catalogErrorMessage || (catalogWorksLoaded ? '作品圖片與分類由店家管理。' : '以下為風格示意，請替換成店家授權作品。') }}</p></div>
-      <div class="portfolio-filters" aria-label="依作品風格篩選">
-        <button
-          v-for="category in workCategories"
-          :key="category"
-          type="button"
-          :class="{ active: selectedWorkCategory === category }"
-          :aria-pressed="selectedWorkCategory === category ? 'true' : 'false'"
-          @click="selectedWorkCategory = category"
-        >{{ category }}</button>
-      </div>
+      <div class="section-heading"><div><p class="eyebrow">SELECTED WORKS</p><h2>把喜歡，留在指尖。</h2></div><p>{{ catalogErrorMessage || (catalogWorksLoaded ? '作品圖片由店家管理。' : '以下為風格示意，請替換成店家授權作品。') }}</p></div>
       <div class="portfolio-grid">
-        <article v-for="(work, index) in filteredWorks" :key="work.id || work.title" class="work-card" :class="`work-${index + 1}`">
+        <article v-for="(work, index) in works" :key="work.id || work.title" class="work-card" :class="`work-${index + 1}`">
           <button class="work-preview" type="button" :aria-label="`放大查看${work.title}作品示意`" @click="selectedWork = work">
             <div class="work-art" :class="work.visual" :style="work.imageURL ? { backgroundImage: `url(${work.imageURL})` } : null"><span v-if="!work.imageURL">{{ work.art || '✳' }}</span></div>
           </button>
-          <div class="work-caption"><h3>{{ work.title }}</h3><span>{{ work.category }}</span></div>
+          <div class="work-caption"><h3>{{ work.title }}</h3></div>
         </article>
       </div>
       <div v-if="selectedWork" class="work-lightbox" role="dialog" aria-modal="true" :aria-label="`${selectedWork.title}作品示意`" @click.self="selectedWork = null">
         <div class="lightbox-content">
           <button class="lightbox-close" type="button" aria-label="關閉作品預覽" @click="selectedWork = null">關閉 ×</button>
           <div class="work-art lightbox-art" :class="selectedWork.visual" :style="selectedWork.imageURL ? { backgroundImage: `url(${selectedWork.imageURL})` } : null"><span v-if="!selectedWork.imageURL">{{ selectedWork.art || '✳' }}</span></div>
-          <div class="work-caption"><h3>{{ selectedWork.title }}</h3><span>{{ selectedWork.category }} · 風格示意</span></div>
+          <div class="work-caption"><h3>{{ selectedWork.title }}</h3></div>
         </div>
       </div>
     </section>
@@ -116,7 +106,6 @@ export default {
   data () {
     return {
       mobileMenuOpen: false,
-      selectedWorkCategory: '全部',
       selectedWork: null,
       catalogServicesLoaded: false,
       catalogWorksLoaded: false,
@@ -139,13 +128,6 @@ export default {
         backgroundImage: `linear-gradient(160deg,rgba(48,42,39,.03),rgba(48,42,39,.16)),url("${process.env.BASE_URL}banner.jpg")`
       }
     },
-    workCategories () {
-      return ['全部', ...new Set(this.works.map(work => work.category).filter(Boolean))]
-    },
-    filteredWorks () {
-      if (this.selectedWorkCategory === '全部') return this.works
-      return this.works.filter(work => work.category === this.selectedWorkCategory)
-    }
   },
   created () {
     if (firebaseConfigured) this.loadCatalog()
@@ -162,7 +144,6 @@ export default {
         if (works.length) {
           this.works = works
           this.catalogWorksLoaded = true
-          this.selectedWorkCategory = '全部'
         }
       } catch (error) {
         this.catalogServicesLoaded = false
