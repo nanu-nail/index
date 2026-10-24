@@ -5,8 +5,10 @@
         <span>𝚗𝚊𝚗𝚞.</span>
       </a>
       <nav class="desktop-nav" aria-label="主導覽">
-        <a href="#about">關於我們</a><a href="#services">服務項目</a>
-        <a href="#portfolio">作品欣賞</a><a href="#booking-notes">預約須知</a>
+        <a href="#about">NOTES</a><a href="#services">SERVICES</a>
+        <a href="#portfolio">COLLECTION</a>
+        <a href="https://line.me/R/ti/p/%40340zmevl" target="_blank" rel="noopener noreferrer">LINE</a>
+        <a href="https://www.instagram.com/nanu_nail_/" target="_blank" rel="noopener noreferrer">INSTAGRAM</a>
       </nav>
       <AuthControl class="header-auth" />
       <button
@@ -20,37 +22,46 @@
         <span></span><span></span>
       </button>
       <nav v-if="mobileMenuOpen" id="mobile-navigation" class="mobile-nav" aria-label="手機主導覽">
-        <a href="#about" @click="mobileMenuOpen = false">關於我們</a>
-        <a href="#services" @click="mobileMenuOpen = false">服務項目</a>
-        <a href="#portfolio" @click="mobileMenuOpen = false">作品欣賞</a>
-        <a href="#booking-notes" @click="mobileMenuOpen = false">預約須知</a>
-        <router-link to="/booking" @click.native="mobileMenuOpen = false">立即預約</router-link>
+        <a href="#about" @click="mobileMenuOpen = false">NOTES</a>
+        <a href="#services" @click="mobileMenuOpen = false">SERVICES</a>
+        <a href="#portfolio" @click="mobileMenuOpen = false">COLLECTION</a>
+        <a href="https://line.me/R/ti/p/%40340zmevl" target="_blank" rel="noopener noreferrer" @click="mobileMenuOpen = false">LINE</a>
+        <a href="https://www.instagram.com/nanu_nail_/" target="_blank" rel="noopener noreferrer" @click="mobileMenuOpen = false">INSTAGRAM</a>
+        <router-link class="mobile-booking-link" to="/booking" @click.native="mobileMenuOpen = false">BOOK NOW</router-link>
         <AuthControl class="mobile-auth" />
       </nav>
     </header>
 
     <section id="top" class="hero">
       <div class="hero-copy">
-        <p class="eyebrow">A LITTLE TIME FOR YOURSELF</p>
-        <h1>讓日常的每一刻，<br><em>都從指尖開始溫柔。</em></h1>
-        <p class="hero-description">為自己留一點時間，在柔和色彩與細緻工藝裡，找到剛剛好的日常美感。</p>
-        <router-link class="button button-dark" to="/booking">預約一段美好時光</router-link>
-        <p class="hero-note">服務資訊為暫定內容，正式開放預約前可再修改。</p>
+        <p class="eyebrow">nail design / private stuido</p>
+        <h1>A little light<br><em>Entirely your own</em></h1>
+        <p class="hero-description">在細微之處，收藏屬於自己的光</p>
+        <router-link class="button button-dark" to="/booking">開始預約</router-link>
       </div>
-      <div class="hero-image" :style="heroImageStyle" role="img" aria-label="柔和色調的美甲工作室情境照片">
+      <div class="hero-image" role="group" aria-label="首頁作品圖片輪播">
+        <img
+          v-for="(image, index) in heroImages"
+          :key="image"
+          class="hero-slide"
+          :class="{ 'hero-slide--active': index === heroImageIndex }"
+          :src="image"
+          :alt="`美甲作品 ${index + 1}`"
+          :aria-hidden="index === heroImageIndex ? 'false' : 'true'"
+        >
       </div>
-      <div class="hero-index">EST. WITH CARE <span>✳</span> TAIWAN</div>
+      <div class="hero-index">SINCE. 2026</div>
     </section>
 
     <section id="about" class="intro section-wrap">
-      <p class="eyebrow">THE STUDIO</p>
-      <h2>細節裡的用心，<br>讓喜歡的風格自然發生。</h2>
-      <p>𝚗𝚊𝚗𝚞. 以日常美感為靈感。從色彩、線條到每一個小細節，陪你找到自在又耐看的指尖風格。</p>
-      <a class="text-link" href="#portfolio">看看我們的作品</a>
+      <p class="eyebrow">BOOKING NOTES</p>
+      <h2>預約前，請先留意。</h2>
+      <p>預約送出後會先由店家確認，確認後才算成立。預約成功後提供詳細地址。若需更改或取消，請提早透過官方 LINE 聯繫；到店時請準時，並預留完整施作時間。</p>
+      <p>近乙未保台公園、壢新醫院｜預約成功給詳細地址</p>
     </section>
 
     <section id="services" class="services section-wrap">
-      <div class="section-heading"><div><p class="eyebrow">OUR SERVICES</p><h2>為今天，挑一種喜歡。</h2></div><p>{{ catalogErrorMessage || (catalogServicesLoaded ? '服務與價格依店家目前提供的項目為準。' : '尚未載入店家服務時，以下為暫定展示內容。') }}</p></div>
+      <div class="section-heading"><div><p class="eyebrow">OUR SERVICES</p></div><p>{{ catalogErrorMessage || (catalogServicesLoaded ? '服務與價格依店家目前提供的項目為準。' : '尚未載入店家服務時，以下為暫定展示內容。') }}</p></div>
       <div class="service-grid">
         <article v-for="(service, index) in services" :key="service.name" class="service-card">
           <span class="service-number">0{{ index + 1 }}</span>
@@ -62,11 +73,11 @@
     </section>
 
     <section id="portfolio" class="portfolio section-wrap">
-      <div class="section-heading"><div><p class="eyebrow">SELECTED WORKS</p><h2>把喜歡，留在指尖。</h2></div><p>{{ catalogErrorMessage || (catalogWorksLoaded ? '作品圖片由店家管理。' : '以下為風格示意，請替換成店家授權作品。') }}</p></div>
+      <div class="section-heading"><div><p class="eyebrow">COLLECTION</p></div><p>{{ catalogErrorMessage || (catalogWorksLoaded ? '皆為客人實際作品，呈現真實施作樣貌。' : '以下為風格示意，請替換成店家授權作品。') }}</p></div>
       <div class="portfolio-grid">
         <article v-for="(work, index) in works" :key="work.id || work.title" class="work-card" :class="`work-${index + 1}`">
           <button class="work-preview" type="button" :aria-label="`放大查看${work.title}作品示意`" @click="selectedWork = work">
-            <div class="work-art" :class="work.visual" :style="work.imageURL ? { backgroundImage: `url(${work.imageURL})` } : null"><span v-if="!work.imageURL">{{ work.art || '✳' }}</span></div>
+            <div class="work-art" :class="work.visual"><img v-if="work.imageURL" :src="work.imageURL" :alt="work.alt || work.title"><span v-else>{{ work.art || '✳' }}</span></div>
           </button>
           <div class="work-caption"><h3>{{ work.title }}</h3></div>
         </article>
@@ -74,21 +85,15 @@
       <div v-if="selectedWork" class="work-lightbox" role="dialog" aria-modal="true" :aria-label="`${selectedWork.title}作品示意`" @click.self="selectedWork = null">
         <div class="lightbox-content">
           <button class="lightbox-close" type="button" aria-label="關閉作品預覽" @click="selectedWork = null">關閉 ×</button>
-          <div class="work-art lightbox-art" :class="selectedWork.visual" :style="selectedWork.imageURL ? { backgroundImage: `url(${selectedWork.imageURL})` } : null"><span v-if="!selectedWork.imageURL">{{ selectedWork.art || '✳' }}</span></div>
+          <div class="work-art lightbox-art" :class="selectedWork.visual"><img v-if="selectedWork.imageURL" :src="selectedWork.imageURL" :alt="selectedWork.alt || selectedWork.title"><span v-else>{{ selectedWork.art || '✳' }}</span></div>
           <div class="work-caption"><h3>{{ selectedWork.title }}</h3></div>
         </div>
       </div>
     </section>
 
-    <section id="booking-notes" class="booking-band">
-      <p class="eyebrow">BOOKING NOTES</p><h2>慢慢挑選，<br>再把時段留給自己。</h2>
-      <router-link class="button button-light" to="/booking">選擇服務並預約</router-link>
-      <p class="policy-note">取消需由管理員協助。其他預約規則、遲到及付款政策仍待店家確認。</p>
-    </section>
-
     <footer id="member" class="site-footer">
-      <div><a class="brand footer-brand" href="#top"><span>𝚗𝚊𝚗𝚞.</span></a><p>留一點時間，讓喜歡慢慢發生。</p></div>
-      <div class="footer-info"><p>聯絡資訊、地址、營業時間與社群連結<br>皆為待替換的暫定資料。</p><a href="#top">回到頁首 ↑</a></div>
+      <div><a class="brand footer-brand" href="#top"><span>𝚗𝚊𝚗𝚞.</span></a><p>An unhurried moment, where beauty quietly unfolds.</p></div>
+      <div class="footer-info"><p>近乙未保台公園、壢新醫院｜預約成功給詳細地址</p><a href="#top">回到頁首 ↑</a></div>
       <div class="footer-bottom"><span>© 2026 𝚗𝚊𝚗𝚞.</span><span>MADE WITH CARE</span></div>
     </footer>
   </main>
@@ -106,6 +111,8 @@ export default {
   data () {
     return {
       mobileMenuOpen: false,
+      heroImageIndex: 0,
+      heroSlideTimer: null,
       selectedWork: null,
       catalogServicesLoaded: false,
       catalogWorksLoaded: false,
@@ -123,14 +130,20 @@ export default {
     }
   },
   computed: {
-    heroImageStyle () {
-      return {
-        backgroundImage: `linear-gradient(160deg,rgba(48,42,39,.03),rgba(48,42,39,.16)),url("${process.env.BASE_URL}banner.jpg")`
-      }
-    },
+    heroImages () {
+      return [1, 2, 3].map(index => `${process.env.BASE_URL}nail%20(${index}).jpg`)
+    }
   },
   created () {
     if (firebaseConfigured) this.loadCatalog()
+  },
+  mounted () {
+    this.heroSlideTimer = window.setInterval(() => {
+      this.heroImageIndex = (this.heroImageIndex + 1) % this.heroImages.length
+    }, 5000)
+  },
+  beforeDestroy () {
+    window.clearInterval(this.heroSlideTimer)
   },
   methods: {
     formatDuration,

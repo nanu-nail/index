@@ -51,7 +51,6 @@ export async function saveService (service) {
 export async function saveWork (work) {
   const data = {
     title: work.title.trim(),
-    category: work.category,
     imageURL: work.imageURL.trim(),
     alt: work.alt.trim() || work.title.trim(),
     active: Boolean(work.active),

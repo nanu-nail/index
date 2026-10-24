@@ -95,7 +95,6 @@
           <form class="admin-form" @submit.prevent="saveWorkForm">
             <h3>{{ workDraft.id ? '編輯作品' : '新增作品' }}</h3>
             <label>作品名稱<input v-model.trim="workDraft.title" required maxlength="60"></label>
-            <label>風格分類<select v-model="workDraft.category"><option v-for="category in styleCategories" :key="category" :value="category">{{ category }}</option></select></label>
             <label>作品圖片網址<input v-model.trim="workDraft.imageURL" type="url" placeholder="https://…"></label>
             <label>圖片替代文字<input v-model.trim="workDraft.alt" maxlength="120"></label>
             <div class="form-row"><label>排序<input v-model.number="workDraft.sortOrder" type="number" min="0"></label><label class="check-label"><input v-model="workDraft.active" type="checkbox"> 顯示於網站</label></div>
@@ -103,7 +102,7 @@
           </form>
           <p class="form-hint">請使用店家擁有或已取得網站使用授權的圖片網址。圖片上傳功能可在後續接入 Firebase Storage。</p>
           <div class="admin-list">
-            <article v-for="work in works" :key="work.id" class="catalog-row"><div><strong>{{ work.title }}</strong><span>{{ work.category }}<small>{{ work.active ? '・上架中' : '・已停用' }}</small></span></div><div class="row-actions"><button type="button" @click="editWork(work)">編輯</button><button type="button" @click="toggleWork(work)">{{ work.active ? '停用' : '啟用' }}</button></div></article>
+            <article v-for="work in works" :key="work.id" class="catalog-row"><div><strong>{{ work.title }}</strong><span><small>{{ work.active ? '・上架中' : '・已停用' }}</small></span></div><div class="row-actions"><button type="button" @click="editWork(work)">編輯</button><button type="button" @click="toggleWork(work)">{{ work.active ? '停用' : '啟用' }}</button></div></article>
           </div>
         </section>
 
@@ -203,7 +202,6 @@ export default {
       holidayCalendarMonth: getTaipeiDateString().slice(0, 7),
       weekdays: ['日', '一', '二', '三', '四', '五', '六'],
       openMonthDraft: '',
-      styleCategories: ['簡約日常', '經典法式', '貓眼光澤', '造型設計'],
       allHours: Array.from({ length: 24 }, (_, index) => index),
       closingHours: Array.from({ length: 23 }, (_, index) => index + 1)
     }
@@ -311,7 +309,7 @@ export default {
       return { id: '', name: '', description: '', price: 0, durationMinutes: 60, addOns: [], active: true, sortOrder: 0 }
     },
     emptyWork () {
-      return { id: '', title: '', category: '簡約日常', imageURL: '', alt: '', active: true, sortOrder: 0 }
+      return { id: '', title: '', imageURL: '', alt: '', active: true, sortOrder: 0 }
     },
     async loadAdminData () {
       this.loading = true
