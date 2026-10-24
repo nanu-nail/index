@@ -32,7 +32,12 @@
         <h2>預約已送出</h2>
         <p>店家確認前，預約狀態為「待確認」。請保留以下預約編號。</p>
         <div class="booking-number"><span>預約編號</span><strong>{{ bookingId }}</strong></div>
-        <router-link class="button button-dark" to="/member">查看我的預約</router-link>
+        <a v-if="lineMessageUrl" class="button button-dark line-booking-link" :href="lineMessageUrl" target="_blank" rel="noopener noreferrer">加入官方 LINE 並傳送預約資料</a>
+        <div v-if="lineMessageUrl && lineQrCode" class="line-booking-qr">
+          <img :src="lineQrCode" alt="掃描 QR code，在 LINE 開啟預填的預約訊息">
+          <p>請用手機 LINE 掃描 QR code，確認預約資料後按下發送。</p>
+        </div>
+        <p v-else-if="lineMessageUrl" class="line-booking-note">加入好友後，預約資料會先填入對話框，請確認內容並按下發送。</p>
       </div>
 
       <form v-else class="booking-form" @submit.prevent="continueToConfirm">
@@ -151,6 +156,7 @@
 
 <script>
 import PageNotice from '../components/PageNotice.vue'
+import QRCode from 'qrcode'
 import { authState, signInWithGoogle } from '../services/auth'
 import { getServices } from '../services/catalog'
 import {
@@ -193,6 +199,7 @@ export default {
       submitting: false,
       showLoginPrompt: false,
       bookingId: '',
+      lineQrCode: '',
       step: 'details'
     }
   },
@@ -208,6 +215,22 @@ export default {
     },
     selectedTotalPrice () {
       return Number(this.selectedService && this.selectedService.price || 0) + this.selectedAddOns.reduce((total, addon) => total + Number(addon.price || 0) * addon.quantity, 0)
+    },
+    lineMessageUrl () {
+      const lineId = '@340zmevl'
+      const memberProfile = this.authState.memberProfile
+      if (!lineId || !memberProfile || !this.selectedService || this.selectedHour === null) return ''
+
+      const bookingMessage = [
+        '您好，我已完成線上預約，資料如下：',
+        `姓名：${memberProfile.customerName}`,
+        `電話：${memberProfile.phone}`,
+        `預約日期：${this.selectedDate}`,
+        `預約時間：${this.formatHour(this.selectedHour)}–${this.formatEndHour(this.selectedHour, this.selectedService.durationMinutes)}`,
+        `預約項目：${this.selectedService.name}${this.selectedAddOns.length ? `（加購：${this.selectedAddOnSummary}）` : ''}`
+      ].join('\n')
+
+      return `https://line.me/R/oaMessage/${encodeURIComponent(lineId)}/?${encodeURIComponent(bookingMessage)}`
     },
     selectedAddOnSummary () {
       return this.selectedAddOns.map(addon => `${addon.name} × ${addon.quantity}（+NT$ ${Number(addon.price) * addon.quantity}）`).join('、')
@@ -268,6 +291,18 @@ export default {
   },
   methods: {
     formatDuration,
+    async generateLineQrCode () {
+      if (!this.lineMessageUrl) return
+      try {
+        this.lineQrCode = await QRCode.toDataURL(this.lineMessageUrl, {
+          errorCorrectionLevel: 'M',
+          margin: 1,
+          width: 220
+        })
+      } catch (error) {
+        this.lineQrCode = ''
+      }
+    },
     addonQuantity (addonId) {
       return Number(this.selectedAddOnQuantities[addonId]) || 0
     },
@@ -400,6 +435,7 @@ export default {
           settings: this.settings
         })
         this.step = 'success'
+        this.generateLineQrCode()
       } catch (error) {
         const isConflict = error.code === 'aborted' || error.code === 'permission-denied'
         const message = isConflict
@@ -448,6 +484,8 @@ export default {
 .confirm-overlay,.login-prompt-overlay{position:fixed;inset:0;z-index:25;display:grid;place-items:center;overflow:auto;padding:24px;background:rgba(35,29,26,.7)}.login-prompt-overlay{z-index:30}.confirm-card,.login-prompt-card{width:min(560px,100%);max-height:calc(100vh - 48px);overflow:auto;padding:25px;background:var(--paper)}.login-prompt-card{width:min(420px,100%);text-align:center}.confirm-close{display:block;margin:0 0 24px;padding:0;border:0;background:none;color:var(--muted);font:13.666px var(--sans);cursor:pointer}.confirm-card .eyebrow,.login-prompt-card .eyebrow{margin-bottom:10px}.confirm-card h2,.login-prompt-card h2{margin:0 0 20px;font:400 24px var(--serif)}.login-prompt-card>p:not(.eyebrow){margin:0 0 24px;color:var(--muted);font-size:14.666px;line-height:1.8}.confirm-details{margin:0;border-top:1px solid var(--line)}.confirm-details div{display:grid;grid-template-columns:100px 1fr;gap:12px;padding:12px 0;border-bottom:1px solid var(--line);font-size:14.666px}.confirm-details dt{color:var(--muted)}.confirm-details dd{margin:0}.confirm-note{margin:18px 0;color:var(--muted);font-size:12.666px;line-height:1.8}.confirm-submit{width:100%;border:0;cursor:pointer}
 .booking-success{padding:44px 22px;text-align:center;background:var(--cream)}.success-mark{display:grid;place-items:center;width:48px;height:48px;margin:0 auto 18px;border:1px solid #a98578;border-radius:50%;color:#8d6b5e;font-size:21px}.booking-success .eyebrow{margin-bottom:8px}.booking-success h2{margin:0 0 12px;font:400 28px var(--serif)}.booking-success>p:not(.eyebrow){color:var(--muted);font-size:14.666px;line-height:1.9}.booking-number{display:grid;gap:8px;margin:24px auto;width:min(360px,100%);padding:16px;background:var(--paper)}.booking-number span{color:var(--muted);font-size:12.666px}.booking-number strong{overflow-wrap:anywhere;font:15.666px var(--sans);letter-spacing:.04em}.booking-success .button{margin-top:8px}
 @media(max-width:600px){.booking-page{padding-top:30px}.back-home{margin-bottom:28px}.booking-heading{margin-bottom:30px}.booking-progress{gap:8px;margin-bottom:28px}.booking-progress i{width:24px}.booking-progress small{font-size:11.666px}.form-section{padding:24px 0}.form-section-heading{gap:11px}.form-section-heading h2{font-size:18px}.service-option{gap:9px;padding:14px 10px}.service-option-copy strong,.service-option-meta strong{font-size:15px}.service-option-copy small{width:100%;max-width:none;line-height:1.6}.service-option-meta small{font-size:13px}.calendar-panel{padding:12px}.calendar-toolbar{grid-template-columns:34px 1fr 34px auto;gap:6px}.calendar-toolbar button{min-height:34px}.calendar-toolbar .calendar-refresh{padding:0 8px}.calendar-weekdays,.calendar-grid{gap:3px}.calendar-day,.calendar-empty{min-height:50px}.calendar-day>span{font-size:14.666px}.calendar-legend{gap:10px 12px}.booking-actions{align-items:stretch;flex-direction:column-reverse}.booking-login{margin:0}.confirm-overlay{padding:12px}.confirm-card{max-height:calc(100vh - 24px);padding:18px}.confirm-details div{grid-template-columns:82px 1fr}.booking-success{padding:35px 14px}}
+.line-booking-link{display:none;margin-top:8px}.line-booking-qr{display:grid;justify-items:center;gap:8px;margin:18px auto}.line-booking-qr img{display:block;width:220px;height:220px;padding:8px;background:#fff}.line-booking-qr p,.booking-success .line-booking-note{margin:4px auto 0;color:#514943;font-size:17px;font-weight:500;line-height:1.8}
+@media(max-width:760px){.line-booking-link{display:inline-flex}.line-booking-qr{display:none}}
 .calendar-day--empty{visibility:hidden;min-height:58px}
 .addon-selection{display:grid;gap:8px;margin-top:18px}.addon-selection h3{margin:0 0 2px;font:16.333px var(--serif);font-weight:400}.addon-option{display:grid;grid-template-columns:minmax(0,1fr) 90px;align-items:center;gap:10px;padding:11px 13px;border:1px solid var(--line);background:#fffdfa;font-size:15px}.addon-option-check{display:flex;align-items:center;gap:10px;min-width:0;cursor:pointer}.addon-option-check input{width:16px;height:16px;accent-color:#927064}.addon-option-check span{flex:1}.addon-option-check strong{font-size:15px;font-weight:500;white-space:nowrap}.addon-option select{width:100%;min-height:36px;padding:6px 8px;border:1px solid var(--line);background:#fff;color:var(--ink);font:15px var(--sans)}.addon-option select:disabled{opacity:.55}
 </style>
