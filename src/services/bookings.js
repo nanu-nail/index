@@ -228,7 +228,8 @@ export async function createBooking ({ user, service, date, startHour, designCat
     })
     transaction.set(bookingRef, {
       userId,
-      customerName: bookingUser.displayName || '',
+      customerName: bookingUser.customerName || '',
+      customerPhone: bookingUser.customerPhone || '',
       customerEmail: bookingUser.email || '',
       staffId: DEFAULT_STAFF_ID,
       date: dateStart,

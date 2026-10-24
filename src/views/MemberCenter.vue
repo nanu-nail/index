@@ -18,7 +18,7 @@
     <template v-else>
       <section class="member-profile" aria-label="會員資料">
         <img v-if="authState.user.photoURL" :src="authState.user.photoURL" alt="會員頭像" referrerpolicy="no-referrer">
-        <div><strong>{{ authState.user.displayName || '會員' }}</strong><span>{{ authState.user.email }}</span></div>
+        <div><strong>{{ (authState.memberProfile && authState.memberProfile.customerName) || '會員' }}</strong><span>{{ (authState.memberProfile && authState.memberProfile.phone) || '' }}・{{ authState.user.email }}</span></div>
         <AuthControl class="member-logout" :show-profile="false" />
       </section>
       <section class="booking-history" aria-labelledby="history-title">
@@ -33,7 +33,7 @@
         <div v-else class="booking-list">
           <article v-for="booking in bookings" :key="booking.id" class="booking-item">
             <div class="booking-date"><strong>{{ formatDate(booking.date) }}</strong><span>{{ formatHour(booking.startHour) }}</span></div>
-            <div class="booking-description"><h3>{{ booking.serviceName }}</h3><p>{{ booking.designCategory }}<span v-if="booking.designWorkTitle"> · {{ booking.designWorkTitle }}</span></p><p v-if="booking.selectedAddOns && booking.selectedAddOns.length">加購：{{ getBookingAddOnSummary(booking) }}</p></div>
+            <div class="booking-description"><h3>{{ booking.serviceName }}</h3><p>訂單編號：{{ booking.id }}</p><p>{{ booking.designCategory }}<span v-if="booking.designWorkTitle"> · {{ booking.designWorkTitle }}</span></p><p v-if="booking.selectedAddOns && booking.selectedAddOns.length">加購：{{ getBookingAddOnSummary(booking) }}</p></div>
             <div class="booking-state"><span :class="`status status--${booking.status}`">{{ statusLabel(booking.status) }}</span><strong>{{ Number(booking.price) === 0 ? '私訊報價' : `NT$ ${getBookingTotalPrice(booking)}` }}</strong></div>
           </article>
         </div>

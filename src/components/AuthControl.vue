@@ -5,9 +5,9 @@
       Google 登入 <span aria-hidden="true">↗</span>
     </button>
     <div v-else class="auth-signed-in">
-      <router-link v-if="showProfile" class="auth-profile" to="/member" :title="authState.user.displayName || '會員中心'">
+      <router-link v-if="showProfile" class="auth-profile" to="/member" :title="(authState.memberProfile && authState.memberProfile.customerName) || '會員中心'">
         <img v-if="authState.user.photoURL" :src="authState.user.photoURL" alt="" referrerpolicy="no-referrer">
-        <span>{{ authState.user.displayName || '會員中心' }}</span>
+        <span>{{ (authState.memberProfile && authState.memberProfile.customerName) || '設定會員資料' }}</span>
       </router-link>
       <button class="auth-logout" type="button" @click="logout">登出</button>
     </div>

@@ -71,7 +71,7 @@ service cloud.firestore {
           'designWorkTitle', 'status', 'createdAt', 'updatedAt'
         ])
         && data.keys().hasOnly([
-          'userId', 'customerName', 'customerEmail', 'staffId', 'date', 'startAt', 'endAt', 'startHour',
+          'userId', 'customerName', 'customerEmail', 'customerPhone', 'staffId', 'date', 'startAt', 'endAt', 'startHour',
           'serviceId', 'serviceName', 'price', 'durationMinutes', 'designCategory',
           'designWorkTitle', 'status', 'createdAt', 'updatedAt', 'confirmedAt', 'cancelledAt', 'selectedAddOns'
         ])
@@ -86,6 +86,7 @@ service cloud.firestore {
         && data.designCategory is string
         && data.designWorkTitle is string
         && (!data.keys().hasAny(['selectedAddOns']) || data.selectedAddOns is list)
+        && (!data.keys().hasAny(['customerPhone']) || data.customerPhone is string)
         && data.createdAt is timestamp
         && data.updatedAt is timestamp;
     }
@@ -186,11 +187,23 @@ service cloud.firestore {
       allow read: if signedIn() && (request.auth.uid == userId || isAdmin());
       allow create: if signedIn()
         && request.auth.uid == userId
-        && request.resource.data.keys().hasOnly(['uid', 'displayName', 'photoURL', 'email', 'createdAt', 'updatedAt'])
-        && request.resource.data.uid == userId;
+        && request.resource.data.keys().hasOnly(['uid', 'customerName', 'phone', 'photoURL', 'email', 'displayName', 'createdAt', 'updatedAt'])
+        && request.resource.data.uid == userId
+        && request.resource.data.customerName is string
+        && request.resource.data.customerName.size() > 0
+        && request.resource.data.phone is string
+        && request.resource.data.phone.matches('^09[0-9]{8}$');
       allow update: if signedIn()
         && request.auth.uid == userId
-        && request.resource.data.diff(resource.data).affectedKeys().hasOnly(['displayName', 'photoURL', 'email', 'updatedAt']);
+        && !('customerName' in resource.data)
+        && !('phone' in resource.data)
+        && request.resource.data.diff(resource.data).affectedKeys().hasOnly(['customerName', 'phone', 'photoURL', 'email', 'updatedAt'])
+        && request.resource.data.keys().hasOnly(['uid', 'customerName', 'phone', 'photoURL', 'email', 'displayName', 'createdAt', 'updatedAt'])
+        && request.resource.data.uid == userId
+        && request.resource.data.customerName is string
+        && request.resource.data.customerName.size() > 0
+        && request.resource.data.phone is string
+        && request.resource.data.phone.matches('^09[0-9]{8}$');
       allow delete: if false;
     }
 

@@ -377,11 +377,17 @@ export default {
         this.showLoginPrompt = true
         return
       }
+      const memberProfile = authState.memberProfile
+      if (!memberProfile || !memberProfile.customerName || !memberProfile.phone) {
+        this.errorMessage = '請先完成會員姓名與電話設定，再送出預約。'
+        return
+      }
+      const bookingMember = { ...bookingUser, customerName: memberProfile.customerName, customerPhone: memberProfile.phone }
       this.submitting = true
       this.errorMessage = ''
       try {
         this.bookingId = await createBooking({
-          user: bookingUser,
+          user: bookingMember,
           service: this.selectedService,
           date: this.selectedDate,
           startHour: this.selectedHour,

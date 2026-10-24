@@ -12,6 +12,7 @@ import { auth, db, firebaseConfigured } from './firebase'
 export const authState = Vue.observable({
   loading: true,
   user: null,
+  memberProfile: null,
   isAdmin: false,
   error: ''
 })
@@ -19,7 +20,7 @@ export const authState = Vue.observable({
 let unsubscribeAuth = null
 let observerStarted = false
 
-async function saveMemberProfile (user) {
+async function loadMemberProfile (user) {
   const userRef = doc(db, 'users', user.uid)
   let current
   try {
@@ -27,22 +28,34 @@ async function saveMemberProfile (user) {
   } catch (error) {
     throw profileOperationError(error, '讀取')
   }
-  const profile = {
-    uid: user.uid,
-    displayName: user.displayName || '',
-    photoURL: user.photoURL || '',
-    email: user.email || '',
-    updatedAt: serverTimestamp()
-  }
+  authState.memberProfile = current.exists() ? current.data() : null
+}
 
+export async function saveMemberProfile (user, customerName, phone) {
+  if (!user || !user.uid) throw new Error('請先登入 Google 帳號。')
+  const cleanName = String(customerName || '').trim()
+  const cleanPhone = String(phone || '').trim()
+  if (!cleanName) throw new Error('請輸入姓名。')
+  if (!/^09\d{8}$/.test(cleanPhone)) throw new Error('請輸入有效的台灣手機號碼（09 開頭，共 10 碼）。')
+  const userRef = doc(db, 'users', user.uid)
   try {
-    if (current.exists()) {
-      await setDoc(userRef, profile, { merge: true })
-    } else {
-      await setDoc(userRef, { ...profile, createdAt: serverTimestamp() })
+    const snapshot = await getDoc(userRef)
+    if (snapshot.exists() && snapshot.data().customerName && snapshot.data().phone) {
+      throw new Error('會員姓名與電話已綁定，無法再次修改。')
     }
+    await setDoc(userRef, {
+      uid: user.uid,
+      customerName: cleanName,
+      phone: cleanPhone,
+      email: user.email || '',
+      photoURL: user.photoURL || '',
+      createdAt: snapshot.exists() ? snapshot.data().createdAt : serverTimestamp(),
+      updatedAt: serverTimestamp()
+    }, { merge: true })
+    authState.memberProfile = { uid: user.uid, customerName: cleanName, phone: cleanPhone, email: user.email || '', photoURL: user.photoURL || '' }
   } catch (error) {
-    throw profileOperationError(error, current.exists() ? '更新' : '建立')
+    if (error.message === '會員姓名與電話已綁定，無法再次修改。') throw error
+    throw profileOperationError(error, '儲存')
   }
 }
 
@@ -63,15 +76,18 @@ export function initializeAuth () {
   }
 
   unsubscribeAuth = onAuthStateChanged(auth, async (user) => {
+    authState.loading = true
     authState.user = user
     authState.isAdmin = false
     authState.error = ''
 
     try {
       if (user) {
-        await saveMemberProfile(user)
+        await loadMemberProfile(user)
         const token = await getIdTokenResult(user)
         authState.isAdmin = token.claims.admin === true
+      } else {
+        authState.memberProfile = null
       }
     } catch (error) {
       const errorCode = error && error.code ? `（${error.code}）` : ''
@@ -82,6 +98,7 @@ export function initializeAuth () {
     }
   }, () => {
     authState.user = null
+    authState.memberProfile = null
     authState.isAdmin = false
     authState.loading = false
     authState.error = '無法確認登入狀態，請重新整理頁面。'
