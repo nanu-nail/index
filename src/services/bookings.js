@@ -8,6 +8,7 @@ import {
   query,
   runTransaction,
   serverTimestamp,
+  updateDoc,
   where
 } from 'firebase/firestore'
 import { auth, db, firebaseConfigured } from './firebase'
@@ -267,6 +268,15 @@ export async function getMyBookings (userId) {
 export async function getAllBookings () {
   const result = await getDocs(query(collection(db, 'bookings'), orderBy('date', 'desc')))
   return result.docs.map(item => ({ id: item.id, ...item.data() }))
+}
+
+export async function setBookingPrice (booking, totalPrice) {
+  const amount = Number(totalPrice)
+  if (!Number.isInteger(amount) || amount < 0) throw new Error('金額需為 0 或正整數。')
+  await updateDoc(doc(db, 'bookings', booking.id), {
+    totalPrice: amount,
+    updatedAt: serverTimestamp()
+  })
 }
 
 export async function setBookingStatus (booking, status) {

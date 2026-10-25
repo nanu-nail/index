@@ -34,10 +34,10 @@
         <div class="booking-number"><span>預約編號</span><strong>{{ bookingId }}</strong></div>
         <a v-if="lineMessageUrl" class="button button-dark line-booking-link" :href="lineMessageUrl" target="_blank" rel="noopener noreferrer">加入官方 LINE 並傳送預約資料</a>
         <div v-if="lineMessageUrl && lineQrCode" class="line-booking-qr">
-          <img :src="lineQrCode" alt="掃描 QR code，在 LINE 開啟預填的預約訊息">
-          <p>請用手機 LINE 掃描 QR code，確認預約資料後按下發送。</p>
+          <img :src="lineQrCode" alt="掃描 QR code 加入官方 LINE，開啟預填的預約內容">
+          <p>請用手機掃描 QR code 加入官方 LINE 好友。<br>系統會自動填入預約內容，確認後請自行按下傳送。</p>
         </div>
-        <p v-else-if="lineMessageUrl" class="line-booking-note">加入好友後，預約資料會先填入對話框，請確認內容並按下發送。</p>
+        <p v-else-if="lineMessageUrl" class="line-booking-note">加入好友後，系統會自動填入預約內容，確認後請自行按下傳送。</p>
       </div>
 
       <form v-else class="booking-form" @submit.prevent="continueToConfirm">

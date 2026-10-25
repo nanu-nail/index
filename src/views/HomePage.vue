@@ -108,8 +108,8 @@
 
     <footer id="member" class="site-footer">
       <div><a class="brand footer-brand" href="#top"><span>𝚗𝚊𝚗𝚞.</span></a><p>An unhurried moment, where beauty quietly unfolds.</p></div>
-      <div class="footer-info"><p>近乙未保台公園、壢新醫院｜預約成功給詳細地址</p><a href="#top">回到頁首 ↑</a></div>
-      <div class="footer-bottom"><span>© 2026 𝚗𝚊𝚗𝚞.</span><span>MADE WITH CARE</span></div>
+      <div class="footer-info"><a href="#top">回到頁首 ↑</a></div>
+      <div class="footer-bottom"><span>© 2026 𝚗𝚊𝚗𝚞.</span></div>
     </footer>
   </main>
 </template>

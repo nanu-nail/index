@@ -5,6 +5,7 @@
       Google 登入
     </button>
     <div v-else class="auth-signed-in">
+      <router-link v-if="showAdminLink && authState.isAdmin" class="auth-admin" to="/admin">ADMIN</router-link>
       <router-link v-if="showProfile" class="auth-profile" to="/member" :title="(authState.memberProfile && authState.memberProfile.customerName) || '會員中心'">
         <img v-if="authState.user.photoURL" :src="authState.user.photoURL" alt="" referrerpolicy="no-referrer">
         <span>{{ (authState.memberProfile && authState.memberProfile.customerName) || '設定會員資料' }}</span>
@@ -21,7 +22,8 @@ import { authState, signInWithGoogle, signOutCurrentUser } from '../services/aut
 export default {
   name: 'AuthControl',
   props: {
-    showProfile: { type: Boolean, default: true }
+    showProfile: { type: Boolean, default: true },
+    showAdminLink: { type: Boolean, default: true }
   },
   data () {
     return { authState, error: '' }
@@ -53,6 +55,7 @@ export default {
 .auth-login,.auth-logout{padding:0;border:0;background:none;color:inherit;font:inherit;cursor:pointer}
 .auth-login span{margin-left:6px}
 .auth-signed-in,.auth-profile{display:flex;align-items:center;gap:9px}
+.auth-admin{white-space:nowrap;font-size:13.666px;letter-spacing:.06em}
 .auth-profile{max-width:180px;white-space:nowrap;overflow:hidden;text-overflow:ellipsis}
 .auth-profile img{width:28px;height:28px;border-radius:50%;object-fit:cover}
 .auth-logout{color:var(--muted);font-size:13.666px}

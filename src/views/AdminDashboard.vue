@@ -17,7 +17,7 @@
     <template v-else>
       <section class="admin-toolbar">
         <div><strong>{{ authState.user.displayName || authState.user.email }}</strong><span>管理者</span></div>
-        <AuthControl />
+        <AuthControl :show-admin-link="false" />
       </section>
       <div v-if="loading" class="loading-state" role="status">正在載入管理資料…</div>
       <PageNotice v-else-if="loadError" title="無法載入管理資料" tone="warning">{{ loadError }}</PageNotice>
@@ -35,9 +35,15 @@
               <div class="admin-booking-main"><div><strong>{{ formatDate(booking.date) }}・{{ formatHour(booking.startHour) }}</strong><span>姓名：{{ booking.customerName || '未提供' }}</span><span>電話：{{ booking.customerPhone || '舊訂單未留存' }}</span><span>信箱：{{ booking.customerEmail || '未提供' }}</span><span>訂單編號：{{ booking.id }}</span></div><div><h3>{{ booking.serviceName }} <small>{{ booking.designCategory }}<span v-if="booking.designWorkTitle">・{{ booking.designWorkTitle }}</span></small></h3><span><small v-if="booking.selectedAddOns && booking.selectedAddOns.length">加購：{{ getBookingAddOnSummary(booking) }}</small><span>{{ bookingPriceDisplay(booking) }}・{{ formatDuration(booking.durationMinutes) }}</span></span></div><span :class="`status status--${booking.status}`">{{ statusLabel(booking.status) }}</span></div>
               <div class="admin-booking-meta">下單時間：{{ formatBookingCreatedAt(booking.createdAt) }}</div>
               <div class="admin-booking-actions">
+                <button type="button" @click="startEditingBookingPrice(booking)">編輯金額</button>
                 <button type="button" @click="changeBookingStatus(booking, 'confirmed')">確認預約</button>
                 <button type="button" class="danger-action" @click="changeBookingStatus(booking, 'cancelled')">管理員取消</button>
               </div>
+              <form v-if="editingBookingPriceId === booking.id" class="booking-price-editor" @submit.prevent="saveBookingPrice(booking)">
+                <label>預約金額（NT$）<input v-model.number="bookingPriceDraft" type="number" min="0" step="1" required></label>
+                <button type="submit" :disabled="savingBookingPrice">{{ savingBookingPrice ? '儲存中…' : '儲存金額' }}</button>
+                <button type="button" :disabled="savingBookingPrice" @click="editingBookingPriceId = ''">取消</button>
+              </form>
             </article>
           </div>
         </section>
@@ -154,7 +160,7 @@ import AuthControl from '../components/AuthControl.vue'
 import PageNotice from '../components/PageNotice.vue'
 import { authState } from '../services/auth'
 import { firebaseConfigured } from '../services/firebase'
-import { getAllBookings, setBookingStatus, DEFAULT_BOOKING_SETTINGS, getTaipeiDateString } from '../services/bookings'
+import { getAllBookings, setBookingPrice, setBookingStatus, DEFAULT_BOOKING_SETTINGS, getTaipeiDateString } from '../services/bookings'
 import getBookingTotalPrice, { getBookingAddOnSummary } from '../utils/getBookingTotalPrice'
 import formatDuration from '../utils/formatDuration'
 import {
@@ -192,6 +198,9 @@ export default {
       settings: { ...DEFAULT_BOOKING_SETTINGS },
       loading: false,
       saving: false,
+      savingBookingPrice: false,
+      editingBookingPriceId: '',
+      bookingPriceDraft: 0,
       loadError: '',
       actionMessage: '',
       actionError: false,
@@ -281,6 +290,9 @@ export default {
     getBookingAddOnSummary,
     formatDuration,
     bookingPriceDisplay (booking) {
+      if (booking.totalPrice !== undefined && booking.totalPrice !== null) {
+        return Number(booking.totalPrice) === 0 ? '私訊報價' : `NT$ ${getBookingTotalPrice(booking)}`
+      }
       return Number(booking.price) === 0 ? '私訊報價' : `NT$ ${getBookingTotalPrice(booking)}`
     },
     timestampDate (value) {
@@ -350,6 +362,29 @@ export default {
         this.flash(status === 'confirmed' ? '已確認預約。' : status === 'cancelled' ? '已取消預約並釋出時段。' : '已標記預約完成。')
       } catch (error) {
         this.flash('更新預約失敗，請重新整理後再試。', true)
+      }
+    },
+    startEditingBookingPrice (booking) {
+      this.editingBookingPriceId = booking.id
+      this.bookingPriceDraft = getBookingTotalPrice(booking)
+    },
+    async saveBookingPrice (booking) {
+      const amount = Number(this.bookingPriceDraft)
+      if (!Number.isInteger(amount) || amount < 0) {
+        this.flash('金額需為 0 或正整數。', true)
+        return
+      }
+      this.savingBookingPrice = true
+      this.actionMessage = ''
+      try {
+        await setBookingPrice(booking, amount)
+        this.$set(booking, 'totalPrice', amount)
+        this.editingBookingPriceId = ''
+        this.flash('預約金額已更新。')
+      } catch (error) {
+        this.flash(error.message || '更新預約金額失敗。', true)
+      } finally {
+        this.savingBookingPrice = false
       }
     },
     formatHour (hour) {
@@ -540,4 +575,5 @@ export default {
 @media(max-width:700px){.admin-page{padding-top:28px}.admin-booking-main{grid-template-columns:1fr auto;gap:10px}.admin-booking-main>div:nth-child(2){grid-column:1/2}.admin-booking-main>.status{grid-column:2;grid-row:1}.admin-booking-actions{justify-content:flex-start}.form-row{grid-template-columns:1fr 1fr}.catalog-row{align-items:flex-start}.row-actions{flex-direction:column}.admin-toolbar{align-items:flex-start;gap:12px}.admin-toolbar .auth-control{font-size:12.666px}}
 .admin-booking-meta{margin-top:8px;color:var(--muted);font-size:12.666px}.confirmed-calendar{margin:8px 0 30px;padding:16px;border:1px solid var(--line);background:#fffdfa}.confirmed-calendar-toolbar{display:grid;grid-template-columns:38px 1fr 38px;align-items:center;gap:10px;margin-bottom:12px}.confirmed-calendar-toolbar strong{text-align:center;font:16px var(--serif);font-weight:400}.confirmed-calendar-toolbar button{height:36px;border:1px solid var(--line);background:#fff;color:var(--ink);font:20px var(--sans);cursor:pointer}.confirmed-calendar-weekdays,.confirmed-calendar-grid{display:grid;grid-template-columns:repeat(7,minmax(0,1fr));gap:5px}.confirmed-calendar-weekdays{text-align:center;color:var(--muted);font-size:12.666px}.confirmed-calendar-weekdays span{padding:6px 0}.confirmed-calendar-cell{min-width:0;min-height:94px;padding:5px;border:1px solid var(--line);background:#fff}.confirmed-calendar-cell>strong{display:block;margin-bottom:5px;font-size:12.666px;font-weight:500}.confirmed-calendar-cell--empty{visibility:hidden}.confirmed-calendar-event{display:grid;gap:2px;margin:3px 0;padding:4px;border-left:2px solid #8b6c5c;background:#f5eee9;color:#53463f;font-size:11.666px;overflow-wrap:anywhere}.confirmed-calendar-event b{font-size:11.666px}.confirmed-calendar-event small{color:var(--muted);font-size:10.666px}@media(max-width:600px){.confirmed-calendar{padding:8px}.confirmed-calendar-grid,.confirmed-calendar-weekdays{gap:2px}.confirmed-calendar-cell{min-height:65px;padding:3px}.confirmed-calendar-event{padding:2px;font-size:10.666px}.confirmed-calendar-event small{display:none}}
 @media(max-width:600px){.addon-editor-row{grid-template-columns:1fr 1fr}.addon-remove{width:max-content}}
+.booking-price-editor{display:flex;align-items:flex-end;gap:8px;margin-top:10px;padding:12px;background:var(--cream)}.booking-price-editor label{display:grid;gap:6px;color:var(--muted);font-size:12.666px}.booking-price-editor input{width:160px;min-height:36px;padding:8px 10px;border:1px solid var(--line);background:#fff;color:var(--ink);font:14px var(--sans)}.booking-price-editor button{min-height:36px;padding:7px 10px;border:1px solid var(--line);background:#fffdfa;color:var(--ink);font:12.666px var(--sans);cursor:pointer}.booking-price-editor button:disabled{opacity:.5;cursor:wait}@media(max-width:600px){.booking-price-editor{flex-wrap:wrap}.booking-price-editor input{width:100%}}
 </style>

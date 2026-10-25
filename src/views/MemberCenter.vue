@@ -34,7 +34,7 @@
           <article v-for="booking in bookings" :key="booking.id" class="booking-item">
             <div class="booking-date"><strong>{{ formatDate(booking.date) }}</strong><span>{{ formatHour(booking.startHour) }}</span></div>
             <div class="booking-description"><h3>{{ booking.serviceName }}</h3><p>訂單編號：{{ booking.id }}</p><p>{{ booking.designCategory }}<span v-if="booking.designWorkTitle"> · {{ booking.designWorkTitle }}</span></p><p v-if="booking.selectedAddOns && booking.selectedAddOns.length">加購：{{ getBookingAddOnSummary(booking) }}</p></div>
-            <div class="booking-state"><span :class="`status status--${booking.status}`">{{ statusLabel(booking.status) }}</span><strong>{{ Number(booking.price) === 0 ? '私訊報價' : `NT$ ${getBookingTotalPrice(booking)}` }}</strong></div>
+            <div class="booking-state"><span :class="`status status--${booking.status}`">{{ statusLabel(booking.status) }}</span><strong>{{ booking.totalPrice !== undefined && booking.totalPrice !== null ? (Number(booking.totalPrice) === 0 ? '私訊報價' : `NT$ ${getBookingTotalPrice(booking)}`) : (Number(booking.price) === 0 ? '私訊報價' : `NT$ ${getBookingTotalPrice(booking)}`) }}</strong></div>
           </article>
         </div>
       </section>

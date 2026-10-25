@@ -252,15 +252,25 @@ service cloud.firestore {
         && withinConfiguredHours(request.resource.data)
         && validServiceSnapshot(request.resource.data)
         && bookingMatchesScheduleAfter(bookingId, request.resource.data);
-      allow update: if isAdmin()
-        && request.resource.data.diff(resource.data).affectedKeys().hasOnly([
-          'status', 'updatedAt', 'confirmedAt', 'cancelledAt'
-        ])
-        && request.resource.data.status in ['confirmed', 'cancelled', 'completed']
-        && ((resource.data.status == 'pending' && request.resource.data.status in ['confirmed', 'cancelled'])
-          || (resource.data.status == 'confirmed' && request.resource.data.status in ['cancelled', 'completed']))
-        && (request.resource.data.status != 'cancelled'
-          || !getAfter(scheduleDayPath(resource.data.staffId, resource.data.date)).data.startHours.hasAny([resource.data.startHour]));
+      allow update: if isAdmin() && (
+        (
+          request.resource.data.diff(resource.data).affectedKeys().hasOnly([
+            'status', 'updatedAt', 'confirmedAt', 'cancelledAt'
+          ])
+          && request.resource.data.status in ['confirmed', 'cancelled', 'completed']
+          && ((resource.data.status == 'pending' && request.resource.data.status in ['confirmed', 'cancelled'])
+            || (resource.data.status == 'confirmed' && request.resource.data.status in ['cancelled', 'completed']))
+          && (request.resource.data.status != 'cancelled'
+            || !getAfter(scheduleDayPath(resource.data.staffId, resource.data.date)).data.startHours.hasAny([resource.data.startHour]))
+        )
+        || (
+          resource.data.status == 'pending'
+          && request.resource.data.status == 'pending'
+          && request.resource.data.diff(resource.data).affectedKeys().hasOnly(['totalPrice', 'updatedAt'])
+          && request.resource.data.totalPrice is number
+          && request.resource.data.totalPrice >= 0
+        )
+      );
       allow delete: if false;
     }
 
