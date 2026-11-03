@@ -54,10 +54,10 @@
           <div v-if="selectedService && selectedService.addOns && selectedService.addOns.length" class="addon-selection">
             <h3>加購選項（可複選及選擇數量）</h3>
             <div v-for="addon in selectedService.addOns" :key="addon.id" class="addon-option">
-              <label class="addon-option-check"><input type="checkbox" :checked="addonQuantity(addon.id) > 0" @change="setAddonChecked(addon.id, $event.target.checked)"><span>{{ addon.name }}</span><strong>+NT$ {{ addon.price }}/個</strong></label>
+              <label class="addon-option-check"><input type="checkbox" :checked="addonQuantity(addon.id) > 0" @change="setAddonChecked(addon.id, $event.target.checked)"><span>{{ addon.name }}<small>{{ Number(addon.durationMinutes) || 0 }} MINS・最多 {{ addon.maxQuantity || 10 }} 個</small></span><strong>+NT$ {{ addon.price }}/個</strong></label>
               <select :value="addonQuantity(addon.id)" :disabled="addonQuantity(addon.id) === 0" :aria-label="`${addon.name}數量`" @change="setAddonQuantity(addon.id, $event.target.value)">
                 <option value="0">0</option>
-                <option v-for="quantity in getAddonQuantityOptions()" :key="quantity" :value="quantity">{{ quantity }}</option>
+                <option v-for="quantity in getAddonQuantityOptions(addon)" :key="quantity" :value="quantity">{{ quantity }}</option>
               </select>
             </div>
           </div>
@@ -102,7 +102,7 @@
             <p v-if="loadingCalendar" class="availability-message" role="status">正在確認時段…</p>
             <PageNotice v-else-if="calendarError" tone="warning">{{ calendarError }}</PageNotice>
             <p v-else-if="selectedAvailableHours.length === 0" class="availability-message">目前沒有可預約時段，請重新整理或選擇其他日期。</p>
-            <label v-else class="time-select-field"><span>選擇開始時間</span><select v-model="selectedHour" required><option :value="null" disabled>請選擇時段</option><option v-for="hour in selectedAvailableHours" :key="hour" :value="hour">{{ formatHour(hour) }}–{{ formatEndHour(hour, selectedService.durationMinutes) }}</option></select></label>
+            <label v-else class="time-select-field"><span>選擇開始時間</span><select v-model="selectedHour" required><option :value="null" disabled>請選擇時段</option><option v-for="hour in selectedAvailableHours" :key="hour" :value="hour">{{ formatHour(hour) }}–{{ formatEndHour(hour, selectedBookingDurationMinutes) }}</option></select></label>
           </div>
         </section>
 
@@ -122,8 +122,8 @@
           <dl class="confirm-details">
             <div><dt>服務項目</dt><dd>{{ selectedService && selectedService.name }}</dd></div>
             <div><dt>預約日期</dt><dd>{{ selectedDate }}</dd></div>
-            <div><dt>預約時段</dt><dd>{{ formatHour(selectedHour) }}–{{ formatEndHour(selectedHour, selectedService && selectedService.durationMinutes) }}</dd></div>
-            <div><dt>施作時間</dt><dd>{{ selectedService && formatDuration(Math.max(0, Number(selectedService.durationMinutes) - 30)) }}</dd></div>
+            <div><dt>預約時段</dt><dd>{{ formatHour(selectedHour) }}–{{ formatEndHour(selectedHour, selectedBookingDurationMinutes) }}</dd></div>
+            <div><dt>施作時間</dt><dd>{{ selectedService && formatDuration(selectedTotalWorkMinutes) }}</dd></div>
             <div v-if="selectedAddOns.length"><dt>加購項目</dt><dd>{{ selectedAddOnSummary }}</dd></div>
             <div><dt>合計價格</dt><dd>{{ Number(selectedService && selectedService.price) === 0 ? '私訊報價' : `NT$ ${selectedTotalPrice}` }}</dd></div>
             <div><dt>預約狀態</dt><dd>待確認</dd></div>
@@ -161,6 +161,7 @@ import { authState, signInWithGoogle } from '../services/auth'
 import { getServices } from '../services/catalog'
 import {
   createBooking,
+  DEFAULT_DAILY_BOOKING_CAPACITY,
   getAvailableStartHours,
   getMonthlyAvailability,
   getBookingSettings,
@@ -213,6 +214,20 @@ export default {
         .map(addon => ({ ...addon, quantity: this.addonQuantity(addon.id) }))
         .filter(addon => addon.quantity > 0)
     },
+    selectedBookingDurationMinutes () {
+      const baseDuration = Number(this.selectedService && this.selectedService.durationMinutes) || 0
+      const addOnDuration = this.selectedAddOns.reduce((total, addon) => total + (Number(addon.durationMinutes) || 0) * addon.quantity, 0)
+      return baseDuration + addOnDuration
+    },
+    selectedTotalWorkMinutes () {
+      const baseWork = Math.max(0, Number(this.selectedService && this.selectedService.durationMinutes) - 30)
+      const addOnWork = this.selectedAddOns.reduce((total, addon) => total + (Number(addon.durationMinutes) || 0) * addon.quantity, 0)
+      return baseWork + addOnWork
+    },
+    selectedSchedulingService () {
+      if (!this.selectedService) return null
+      return { ...this.selectedService, durationMinutes: this.selectedBookingDurationMinutes }
+    },
     selectedTotalPrice () {
       return Number(this.selectedService && this.selectedService.price || 0) + this.selectedAddOns.reduce((total, addon) => total + Number(addon.price || 0) * addon.quantity, 0)
     },
@@ -226,7 +241,7 @@ export default {
         `姓名：${memberProfile.customerName}`,
         `電話：${memberProfile.phone}`,
         `預約日期：${this.selectedDate}`,
-        `預約時間：${this.formatHour(this.selectedHour)}–${this.formatEndHour(this.selectedHour, this.selectedService.durationMinutes)}`,
+        `預約時間：${this.formatHour(this.selectedHour)}–${this.formatEndHour(this.selectedHour, this.selectedBookingDurationMinutes)}`,
         `預約項目：${this.selectedService.name}${this.selectedAddOns.length ? `（加購：${this.selectedAddOnSummary}）` : ''}`
       ].join('\n')
 
@@ -270,6 +285,14 @@ export default {
       this.selectedHour = null
       this.errorMessage = ''
       if (this.selectedDate && this.availableHoursForDate(this.selectedDate).length === 0) this.selectedDate = ''
+    },
+    selectedAddOnQuantities: {
+      deep: true,
+      handler () {
+        if (this.selectedDate && this.selectedHour !== null && !this.selectedAvailableHours.includes(this.selectedHour)) {
+          this.selectedHour = null
+        }
+      }
     }
   },
   async created () {
@@ -306,15 +329,18 @@ export default {
     addonQuantity (addonId) {
       return Number(this.selectedAddOnQuantities[addonId]) || 0
     },
-    getAddonQuantityOptions () {
-      return Array.from({ length: 10 }, (_, index) => index + 1)
+    getAddonQuantityOptions (addon) {
+      const maximum = Math.min(10, Math.max(1, Number(addon && addon.maxQuantity) || 10))
+      return Array.from({ length: maximum }, (_, index) => index + 1)
     },
     setAddonChecked (addonId, checked) {
       this.$set(this.selectedAddOnQuantities, addonId, checked ? 1 : 0)
     },
     setAddonQuantity (addonId, value) {
       const quantity = Number(value) || 0
-      this.$set(this.selectedAddOnQuantities, addonId, Math.min(quantity, 10))
+      const addon = (this.selectedService && this.selectedService.addOns || []).find(item => item.id === addonId)
+      const maximum = Math.min(10, Math.max(1, Number(addon && addon.maxQuantity) || 10))
+      this.$set(this.selectedAddOnQuantities, addonId, Math.min(quantity, maximum))
     },
     calendarDateStatus (date) {
       if (Array.isArray(this.settings.openMonths) && !this.settings.openMonths.includes(Number(date.slice(0, 7).replace('-', '')))) return 'unopened'
@@ -323,8 +349,9 @@ export default {
       const availability = this.availabilityByDate[date] || { locks: [], blocked: false }
       if (availability.blocked) return 'holiday'
       if (this.availableHoursForDate(date).length > 0) return 'available'
-      const possibleHours = getAvailableStartHours(date, this.selectedService, [], this.settings)
-      return possibleHours.length > 0 && availability.locks.length > 0 ? 'full' : 'unavailable'
+      const possibleHours = getAvailableStartHours(date, this.selectedSchedulingService, [], this.settings)
+      const capacity = Number(availability.capacity) || DEFAULT_DAILY_BOOKING_CAPACITY
+      return possibleHours.length > 0 && (availability.locks.length >= capacity || availability.locks.length > 0) ? 'full' : 'unavailable'
     },
     calendarDateLabel (status) {
       if (status === 'available') return '可預約'
@@ -338,7 +365,9 @@ export default {
       if (!date || !this.selectedService || !this.settings) return []
       const availability = this.availabilityByDate[date] || { locks: [], blocked: false }
       if (availability.blocked) return []
-      return getAvailableStartHours(date, this.selectedService, availability.locks, this.settings)
+      const capacity = Number(availability.capacity) || DEFAULT_DAILY_BOOKING_CAPACITY
+      if ((availability.locks || []).length >= capacity) return []
+      return getAvailableStartHours(date, this.selectedSchedulingService, availability.locks, this.settings)
     },
     async loadCalendarAvailability () {
       const year = this.calendarYear
@@ -487,5 +516,5 @@ export default {
 .line-booking-link{display:none;margin-top:8px}.line-booking-qr{display:grid;justify-items:center;gap:8px;margin:18px auto}.line-booking-qr img{display:block;width:220px;height:220px;padding:8px;background:#fff}.line-booking-qr p,.booking-success .line-booking-note{margin:4px auto 0;color:#514943;font-size:17px;font-weight:500;line-height:1.8}
 @media(max-width:760px){.line-booking-link{display:inline-flex}.line-booking-qr{display:none}}
 .calendar-day--empty{visibility:hidden;min-height:58px}
-.addon-selection{display:grid;gap:8px;margin-top:18px}.addon-selection h3{margin:0 0 2px;font:16.333px var(--serif);font-weight:400}.addon-option{display:grid;grid-template-columns:minmax(0,1fr) 90px;align-items:center;gap:10px;padding:11px 13px;border:1px solid var(--line);background:#fffdfa;font-size:15px}.addon-option-check{display:flex;align-items:center;gap:10px;min-width:0;cursor:pointer}.addon-option-check input{width:16px;height:16px;accent-color:#927064}.addon-option-check span{flex:1}.addon-option-check strong{font-size:15px;font-weight:500;white-space:nowrap}.addon-option select{width:100%;min-height:36px;padding:6px 8px;border:1px solid var(--line);background:#fff;color:var(--ink);font:15px var(--sans)}.addon-option select:disabled{opacity:.55}
+.addon-selection{display:grid;gap:8px;margin-top:18px}.addon-selection h3{margin:0 0 2px;font:16.333px var(--serif);font-weight:400}.addon-option{display:grid;grid-template-columns:minmax(0,1fr) 90px;align-items:center;gap:10px;padding:11px 13px;border:1px solid var(--line);background:#fffdfa;font-size:15px}.addon-option-check{display:flex;align-items:center;gap:10px;min-width:0;cursor:pointer}.addon-option-check input{width:16px;height:16px;accent-color:#927064}.addon-option-check span{flex:1}.addon-option-check small{display:block;margin-top:3px;color:var(--muted);font-size:12px}.addon-option-check strong{font-size:15px;font-weight:500;white-space:nowrap}.addon-option select{width:100%;min-height:36px;padding:6px 8px;border:1px solid var(--line);background:#fff;color:var(--ink);font:15px var(--sans)}.addon-option select:disabled{opacity:.55}
 </style>

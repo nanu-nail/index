@@ -22,6 +22,16 @@ service cloud.firestore {
       return /databases/$(database)/documents/blockedDates/$(dateId);
     }
 
+    function bookingCapacityPath(date) {
+      let dateId = string(date.toMillis());
+      return /databases/$(database)/documents/bookingCapacityOverrides/$(dateId);
+    }
+
+    function dailyBookingCapacity(date) {
+      let path = bookingCapacityPath(date);
+      return exists(path) ? get(path).data.capacity : 2;
+    }
+
     function withinConfiguredHours(data) {
       let localMidnight = data.date + duration.value(8, 'h');
       let settings = get(bookingSettingsPath()).data;
@@ -56,7 +66,8 @@ service cloud.firestore {
         && get(servicePath(data.serviceId)).data.active == true
         && get(servicePath(data.serviceId)).data.name == data.serviceName
         && get(servicePath(data.serviceId)).data.price == data.price
-        && get(servicePath(data.serviceId)).data.durationMinutes == data.durationMinutes
+        && get(servicePath(data.serviceId)).data.durationMinutes == data.serviceDurationMinutes
+        && data.durationMinutes == data.serviceDurationMinutes + data.addOnDurationMinutes
         && (!data.keys().hasAny(['selectedAddOns'])
           || (data.selectedAddOns is list
             && get(servicePath(data.serviceId)).data.addOns is list
@@ -67,12 +78,12 @@ service cloud.firestore {
     function validBookingShape(data) {
       return data.keys().hasAll([
           'userId', 'customerName', 'customerEmail', 'staffId', 'date', 'startAt', 'endAt', 'startHour',
-          'serviceId', 'serviceName', 'price', 'durationMinutes', 'designCategory',
+          'serviceId', 'serviceName', 'price', 'durationMinutes', 'serviceDurationMinutes', 'addOnDurationMinutes', 'designCategory',
           'designWorkTitle', 'status', 'createdAt', 'updatedAt'
         ])
         && data.keys().hasOnly([
           'userId', 'customerName', 'customerEmail', 'customerPhone', 'staffId', 'date', 'startAt', 'endAt', 'startHour',
-          'serviceId', 'serviceName', 'price', 'durationMinutes', 'designCategory',
+          'serviceId', 'serviceName', 'price', 'durationMinutes', 'serviceDurationMinutes', 'addOnDurationMinutes', 'designCategory',
           'designWorkTitle', 'status', 'createdAt', 'updatedAt', 'confirmedAt', 'cancelledAt', 'selectedAddOns'
         ])
         && data.staffId == 'primary'
@@ -83,6 +94,8 @@ service cloud.firestore {
         && data.serviceName is string
         && data.price is number && data.price >= 0
         && data.durationMinutes is int && data.durationMinutes > 0 && data.durationMinutes <= 240
+        && data.serviceDurationMinutes is int && data.serviceDurationMinutes > 0 && data.serviceDurationMinutes <= 240
+        && data.addOnDurationMinutes is int && data.addOnDurationMinutes >= 0 && data.addOnDurationMinutes <= 240
         && data.designCategory is string
         && data.designWorkTitle is string
         && (!data.keys().hasAny(['selectedAddOns']) || data.selectedAddOns is list)
@@ -145,6 +158,7 @@ service cloud.firestore {
         && data.lastUserId == request.auth.uid
         && data.lastStartHour >= 0 && data.lastStartHour < 24
         && data.startHours.size() == 1
+        && data.startHours.size() <= dailyBookingCapacity(data.date)
         && data.startHours.hasAny([data.lastStartHour])
         && pairedScheduleBooking(data.lastBookingId, data.staffId, data.date, data.lastStartHour, request.auth.uid, 'book');
     }
@@ -158,6 +172,7 @@ service cloud.firestore {
         && data.lastUserId == request.auth.uid
         && hour >= 0 && hour < 24
         && request.resource.data.startHours.size() == resource.data.startHours.size() + 1
+        && request.resource.data.startHours.size() <= dailyBookingCapacity(data.date)
         && request.resource.data.startHours.hasAll(resource.data.startHours)
         && !resource.data.startHours.hasAny([hour])
         && noExistingNearbyStart(hour)
@@ -225,6 +240,19 @@ service cloud.firestore {
     match /blockedDates/{blockedDateId} {
       allow read: if true;
       allow write: if isAdmin();
+    }
+
+    match /bookingCapacityOverrides/{capacityId} {
+      allow read: if true;
+      allow create, update: if isAdmin()
+        && request.resource.data.keys().hasOnly(['date', 'capacity', 'updatedAt'])
+        && request.resource.data.keys().hasAll(['date', 'capacity', 'updatedAt'])
+        && request.resource.data.date is string
+        && request.resource.data.capacity is int
+        && request.resource.data.capacity >= 1
+        && request.resource.data.capacity <= 20
+        && request.resource.data.updatedAt is timestamp;
+      allow delete: if isAdmin();
     }
 
     match /staff/{staffId} {

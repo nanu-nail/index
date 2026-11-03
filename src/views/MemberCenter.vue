@@ -33,7 +33,7 @@
         <div v-else class="booking-list">
           <article v-for="booking in bookings" :key="booking.id" class="booking-item">
             <div class="booking-date"><strong>{{ formatDate(booking.date) }}</strong><span>{{ formatHour(booking.startHour) }}</span></div>
-            <div class="booking-description"><h3>{{ booking.serviceName }}</h3><p>訂單編號：{{ booking.id }}</p><p>{{ booking.designCategory }}<span v-if="booking.designWorkTitle"> · {{ booking.designWorkTitle }}</span></p><p v-if="booking.selectedAddOns && booking.selectedAddOns.length">加購：{{ getBookingAddOnSummary(booking) }}</p></div>
+            <div class="booking-description"><h3>{{ booking.serviceName }}</h3><p>訂單編號：{{ booking.id }}</p><p>施作時間：{{ bookingWorkDuration(booking) }}</p><p v-if="(booking.designCategory && booking.designCategory !== '未指定') || booking.designWorkTitle">{{ booking.designCategory !== '未指定' ? booking.designCategory : '' }}<span v-if="booking.designWorkTitle">{{ booking.designCategory && booking.designCategory !== '未指定' ? ' · ' : '' }}{{ booking.designWorkTitle }}</span></p><p>服務：{{ booking.serviceName }}（{{ servicePriceDisplay(booking) }}）</p><p v-if="booking.selectedAddOns && booking.selectedAddOns.length">加購：{{ getBookingAddOnSummary(booking) }}</p></div>
             <div class="booking-state"><span :class="`status status--${booking.status}`">{{ statusLabel(booking.status) }}</span><strong>{{ booking.totalPrice !== undefined && booking.totalPrice !== null ? (Number(booking.totalPrice) === 0 ? '私訊報價' : `NT$ ${getBookingTotalPrice(booking)}`) : (Number(booking.price) === 0 ? '私訊報價' : `NT$ ${getBookingTotalPrice(booking)}`) }}</strong></div>
           </article>
         </div>
@@ -50,6 +50,7 @@ import { authState } from '../services/auth'
 import { getMyBookings } from '../services/bookings'
 import { firebaseConfigured } from '../services/firebase'
 import getBookingTotalPrice, { getBookingAddOnSummary } from '../utils/getBookingTotalPrice'
+import formatDuration from '../utils/formatDuration'
 
 export default {
   name: 'MemberCenter',
@@ -75,6 +76,15 @@ export default {
   methods: {
     getBookingTotalPrice,
     getBookingAddOnSummary,
+    bookingWorkDuration (booking) {
+      const serviceDuration = Number(booking.serviceDurationMinutes !== undefined ? booking.serviceDurationMinutes : booking.durationMinutes)
+      const addOnDuration = Number(booking.addOnDurationMinutes) || 0
+      return formatDuration(Math.max(0, serviceDuration - 30) + addOnDuration)
+    },
+    servicePriceDisplay (booking) {
+      const price = Number(booking.price) || 0
+      return price === 0 ? '私訊報價' : `NT$ ${price}`
+    },
     async loadBookings (userId) {
       this.loadingBookings = true
       this.loadError = ''

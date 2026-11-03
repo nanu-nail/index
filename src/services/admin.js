@@ -34,7 +34,9 @@ export async function saveService (service) {
     addOns: (service.addOns || []).map(addon => ({
       id: String(addon.id),
       name: addon.name.trim(),
-      price: Number(addon.price)
+      price: Number(addon.price),
+      durationMinutes: Number(addon.durationMinutes) || 0,
+      maxQuantity: Number(addon.maxQuantity)
     })),
     active: Boolean(service.active),
     sortOrder: Number(service.sortOrder) || 0,
@@ -124,4 +126,36 @@ export async function saveBlockedDatesBatch ({ dates, note = '' }) {
 
 export async function deleteBlockedDate (id) {
   await deleteDoc(doc(db, 'blockedDates', id))
+}
+
+export function getBookingCapacityOverrides () {
+  return allDocuments('bookingCapacityOverrides')
+}
+
+export async function saveBookingCapacityOverridesBatch ({ dates, capacity }) {
+  const value = Number(capacity)
+  const uniqueDates = [...new Set(dates || [])].sort()
+  if (uniqueDates.length === 0 || uniqueDates.length > 366 || !Number.isInteger(value) || value < 1 || value > 20) {
+    throw new Error('請選取 1 至 366 個日期，並將每日名額設為 1 至 20 組。')
+  }
+  const batch = writeBatch(db)
+  for (const date of uniqueDates) {
+    if (!/^\d{4}-\d{2}-\d{2}$/.test(date)) throw new Error('日期格式無效。')
+    const dateValue = Date.parse(`${date}T00:00:00Z`)
+    if (!Number.isFinite(dateValue) || new Date(dateValue).toISOString().slice(0, 10) !== date) {
+      throw new Error('日期格式無效。')
+    }
+    const id = String(new Date(`${date}T00:00:00+08:00`).getTime())
+    batch.set(doc(db, 'bookingCapacityOverrides', id), {
+      date,
+      capacity: value,
+      updatedAt: serverTimestamp()
+    })
+  }
+  await batch.commit()
+  return uniqueDates.length
+}
+
+export async function deleteBookingCapacityOverride (id) {
+  await deleteDoc(doc(db, 'bookingCapacityOverrides', id))
 }

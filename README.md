@@ -20,7 +20,7 @@ Firebase 設定尚未完成時仍可預覽首頁；登入與即時預約需先�
 5. 使用 Firebase CLI 登入後，從專案目錄執行 `firebase use --add` 選擇正確專案，再執行 `firebase deploy --only firestore:rules,firestore:indexes`。
 6. 在 GitHub Repository → Settings → Secrets and variables → Actions → Variables，新增六個同名 `VUE_APP_FIREBASE_*` 專案 Variables。Firebase Web API key 是供瀏覽器初始化 SDK 的識別值，不是管理員金鑰；Firestore Rules 才負責資料存取保護。
 
-Firestore 資料集合由管理介面逐步建立：`users`（會員）、`services`（服務）、`portfolios`（作品）、`businessSettings/booking`（營業規則）、`blockedDates`（公休日）、`bookings`（預約），以及 `scheduleDays`（每日預約時段鎖）。預約保留服務名稱、價格和時長快照。第一階段美甲師使用固定 ID `primary`，時段互斥以同一日期文件的 Firestore 交易維護。
+Firestore 資料集合由管理介面逐步建立：`users`（會員）、`services`（服務）、`portfolios`（作品）、`businessSettings/booking`（營業規則）、`blockedDates`（公休日）、`bookingCapacityOverrides`（個別日期名額覆寫）、`bookings`（預約），以及 `scheduleDays`（每日預約時段鎖）。每日名額預設 2 組，管理員可替日期設定 1 至 20 組；沒有覆寫資料的日期沿用 2 組。既有預約和時段資料不需遷移。預約保留服務名稱、價格和時長快照。第一階段美甲師使用固定 ID `primary`，時段互斥以同一日期文件的 Firestore 交易維護。
 
 ## 安全設定管理員
 

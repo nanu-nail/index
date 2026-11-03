@@ -17,6 +17,7 @@ export const DEFAULT_STAFF_ID = 'primary'
 export const OPEN_HOUR = 10
 export const CLOSE_HOUR = 19
 export const MIN_START_GAP_HOURS = 4
+export const DEFAULT_DAILY_BOOKING_CAPACITY = 2
 export const DEFAULT_BOOKING_SETTINGS = Object.freeze({
   openHour: OPEN_HOUR,
   closeHour: CLOSE_HOUR,
@@ -77,15 +78,21 @@ function blockedDateDocumentId (date) {
   return String(new Date(`${date}T00:00:00+08:00`).getTime())
 }
 
+function bookingCapacityRef (date) {
+  return doc(db, 'bookingCapacityOverrides', blockedDateDocumentId(date))
+}
+
 export async function getAvailability (date, staffId = DEFAULT_STAFF_ID) {
   if (!firebaseConfigured) throw new Error('Firebase 尚未設定，暫時無法載入即時可預約時段。')
-  const [scheduleDay, blockedDate] = await Promise.all([
+  const [scheduleDay, blockedDate, capacityOverride] = await Promise.all([
     getDoc(scheduleDayRef(staffId, date)),
-    getDoc(doc(db, 'blockedDates', blockedDateDocumentId(date)))
+    getDoc(doc(db, 'blockedDates', blockedDateDocumentId(date))),
+    getDoc(bookingCapacityRef(date))
   ])
   return {
     locks: scheduleDay.exists() ? (scheduleDay.data().startHours || []).map(startHour => ({ startHour })) : [],
-    blocked: blockedDate.exists() && blockedDate.data().active === true
+    blocked: blockedDate.exists() && blockedDate.data().active === true,
+    capacity: capacityOverride.exists() ? Number(capacityOverride.data().capacity) : DEFAULT_DAILY_BOOKING_CAPACITY
   }
 }
 
@@ -107,9 +114,15 @@ export async function getMonthlyAvailability (year, month, staffId = DEFAULT_STA
     where('date', '>=', startDate),
     where('date', '<', nextMonthDate)
   )
-  const [scheduleResult, blockedResult] = await Promise.all([
+  const capacityQuery = query(
+    collection(db, 'bookingCapacityOverrides'),
+    where('date', '>=', startDate),
+    where('date', '<', nextMonthDate)
+  )
+  const [scheduleResult, blockedResult, capacityResult] = await Promise.all([
     getDocs(scheduleQuery),
-    getDocs(blockedQuery)
+    getDocs(blockedQuery),
+    getDocs(capacityQuery)
   ])
   const availability = {}
   scheduleResult.docs.forEach((item) => {
@@ -124,6 +137,13 @@ export async function getMonthlyAvailability (year, month, staffId = DEFAULT_STA
         ...(availability[data.date] || { locks: [] }),
         blocked: true
       }
+    }
+  })
+  capacityResult.docs.forEach((item) => {
+    const data = item.data()
+    availability[data.date] = {
+      ...(availability[data.date] || { locks: [], blocked: false }),
+      capacity: Number(data.capacity)
     }
   })
   return availability
@@ -150,11 +170,8 @@ export async function createBooking ({ user, service, date, startHour, designCat
 
   const dateStart = new Date(`${date}T00:00:00+08:00`)
   const startAt = new Date(`${date}T${String(startHour).padStart(2, '0')}:00:00+08:00`)
-  const durationMinutes = Number(service.durationMinutes)
-  const endAt = new Date(startAt.getTime() + durationMinutes * 60000)
-  const closeAt = new Date(`${date}T${String(settings.closeHour).padStart(2, '0')}:00:00+08:00`)
-  if (!Number.isFinite(startAt.getTime()) || startAt <= new Date() || endAt > closeAt) {
-    throw new Error('所選時間已過或服務無法在營業時間內完成，請重新選擇。')
+  if (!Number.isFinite(startAt.getTime()) || startAt <= new Date()) {
+    throw new Error('所選時間已過，請重新選擇。')
   }
 
   const bookingRef = doc(collection(db, 'bookings'))
@@ -162,13 +179,15 @@ export async function createBooking ({ user, service, date, startHour, designCat
   const serviceRef = doc(db, 'services', service.id)
   const settingsRef = doc(db, 'businessSettings', 'booking')
   const blockedDateRef = doc(db, 'blockedDates', blockedDateDocumentId(date))
+  const capacityRef = bookingCapacityRef(date)
 
   await runTransaction(db, async (transaction) => {
-    const [currentService, scheduleDay, currentSettingsSnapshot, blockedDateSnapshot] = await Promise.all([
+    const [currentService, scheduleDay, currentSettingsSnapshot, blockedDateSnapshot, capacitySnapshot] = await Promise.all([
       transaction.get(serviceRef),
       transaction.get(dayRef),
       transaction.get(settingsRef),
-      transaction.get(blockedDateRef)
+      transaction.get(blockedDateRef),
+      transaction.get(capacityRef)
     ])
 
     if (blockedDateSnapshot.exists() && blockedDateSnapshot.data().active === true) {
@@ -179,6 +198,10 @@ export async function createBooking ({ user, service, date, startHour, designCat
       throw new Error('這項服務目前無法預約，請重新選擇。')
     }
     const currentHours = scheduleDay.exists() ? (scheduleDay.data().startHours || []) : []
+    const dailyCapacity = capacitySnapshot.exists() ? Number(capacitySnapshot.data().capacity) : DEFAULT_DAILY_BOOKING_CAPACITY
+    if (currentHours.length >= dailyCapacity) {
+      throw new Error('這一天的預約名額已滿，請重新選擇日期。')
+    }
     if (currentHours.some(hour => Math.abs(hour - startHour) < MIN_START_GAP_HOURS)) {
       throw new Error('這個時段剛被預約走，請重新載入時段並選擇其他時間。')
     }
@@ -186,17 +209,24 @@ export async function createBooking ({ user, service, date, startHour, designCat
     const current = currentService.data()
     const configuredAddOns = Array.isArray(current.addOns) ? current.addOns : []
     const selectedAddOns = []
+    let addOnDurationMinutes = 0
     for (const [id, rawQuantity] of Object.entries(selectedAddOnQuantities || {})) {
       const quantity = Number(rawQuantity)
-      if (!Number.isInteger(quantity) || quantity < 1 || quantity > 10) {
-        throw new Error('每個加購選項的數量上限為 10 件，請重新選擇。')
-      }
       const addon = configuredAddOns.find(option => option.id === id)
       if (!addon || !addon.name || !Number.isInteger(Number(addon.price)) || Number(addon.price) < 0) {
         throw new Error('加購選項已更新，請重新選擇後再送出。')
       }
+      const maxQuantity = Number(addon.maxQuantity) || 10
+      const addonDuration = Number(addon.durationMinutes) || 0
+      if (!Number.isInteger(quantity) || quantity < 1 || quantity > maxQuantity || maxQuantity < 1 || maxQuantity > 10) {
+        throw new Error(`「${addon.name}」數量上限為 ${maxQuantity} 個，請重新選擇。`)
+      }
+      if (!Number.isInteger(addonDuration) || addonDuration < 0 || addonDuration > 240) {
+        throw new Error('加購施作時間設定無效，請聯絡店家。')
+      }
+      addOnDurationMinutes += addonDuration * quantity
       for (let unit = 0; unit < quantity; unit += 1) {
-        selectedAddOns.push({ id: addon.id, name: addon.name, price: Number(addon.price) })
+        selectedAddOns.push({ ...addon })
       }
     }
     const currentSettings = currentSettingsSnapshot.exists()
@@ -209,10 +239,11 @@ export async function createBooking ({ user, service, date, startHour, designCat
     if (!getHourlyStartOptions(currentSettings.openHour, currentSettings.closeHour).includes(startHour)) {
       throw new Error('營業時段已更新，請重新選擇可預約時間。')
     }
-    const currentDuration = Number(current.durationMinutes)
+    const serviceDurationMinutes = Number(current.durationMinutes)
+    const currentDuration = serviceDurationMinutes + addOnDurationMinutes
     const currentCloseAt = new Date(`${date}T${String(currentSettings.closeHour).padStart(2, '0')}:00:00+08:00`)
     const currentEnd = new Date(startAt.getTime() + currentDuration * 60000)
-    if (!Number.isInteger(currentDuration) || currentDuration < 1 || currentEnd > currentCloseAt || startAt <= new Date()) {
+    if (!Number.isInteger(serviceDurationMinutes) || serviceDurationMinutes < 1 || !Number.isInteger(currentDuration) || currentDuration > 240 || currentEnd > currentCloseAt || startAt <= new Date()) {
       throw new Error('服務資料有更新，所選時間已無法預約，請重新選擇。')
     }
 
@@ -242,6 +273,8 @@ export async function createBooking ({ user, service, date, startHour, designCat
       price: current.price,
       ...(selectedAddOns.length ? { selectedAddOns } : {}),
       durationMinutes: currentDuration,
+      serviceDurationMinutes,
+      addOnDurationMinutes,
       designCategory,
       designWorkTitle: designWork ? designWork.title : '',
       status: 'pending',

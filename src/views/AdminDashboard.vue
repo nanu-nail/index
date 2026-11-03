@@ -15,6 +15,11 @@
       管理權限由 Firebase Authentication 自訂宣告控制，一般會員不能自行開通。請使用店家管理者帳號登入。
     </PageNotice>
     <template v-else>
+      <transition name="admin-toast-transition">
+        <div v-if="actionMessage" class="admin-toast" :class="{ 'admin-toast--error': actionError }" :role="actionError ? 'alert' : 'status'" aria-live="polite">
+          <span class="admin-toast-icon" aria-hidden="true">{{ actionError ? '!' : '✓' }}</span>{{ actionMessage }}
+        </div>
+      </transition>
       <section class="admin-toolbar">
         <div><strong>{{ authState.user.displayName || authState.user.email }}</strong><span>管理者</span></div>
         <AuthControl :show-admin-link="false" />
@@ -28,11 +33,10 @@
 
         <section v-if="activeTab === 'pending-bookings'" class="admin-section">
           <div class="section-title"><div><p class="eyebrow">PENDING REQUESTS</p><h2>待確認預約</h2></div><button type="button" class="refresh-button" @click="refreshBookings">重新整理</button></div>
-          <PageNotice v-if="actionMessage" :tone="actionError ? 'warning' : 'info'">{{ actionMessage }}</PageNotice>
           <div v-if="pendingBookings.length === 0" class="empty-admin">目前沒有待確認預約。</div>
           <div v-else class="admin-list">
             <article v-for="booking in pendingBookings" :key="booking.id" class="admin-booking">
-              <div class="admin-booking-main"><div><strong>{{ formatDate(booking.date) }}・{{ formatHour(booking.startHour) }}</strong><span>姓名：{{ booking.customerName || '未提供' }}</span><span>電話：{{ booking.customerPhone || '舊訂單未留存' }}</span><span>信箱：{{ booking.customerEmail || '未提供' }}</span><span>訂單編號：{{ booking.id }}</span></div><div><h3>{{ booking.serviceName }} <small>{{ booking.designCategory }}<span v-if="booking.designWorkTitle">・{{ booking.designWorkTitle }}</span></small></h3><span><small v-if="booking.selectedAddOns && booking.selectedAddOns.length">加購：{{ getBookingAddOnSummary(booking) }}</small><span>{{ bookingPriceDisplay(booking) }}・{{ formatDuration(booking.durationMinutes) }}</span></span></div><span :class="`status status--${booking.status}`">{{ statusLabel(booking.status) }}</span></div>
+              <div class="admin-booking-main"><div><strong>{{ formatDate(booking.date) }}・{{ formatHour(booking.startHour) }}</strong><span>姓名：{{ booking.customerName || '未提供' }}</span><span>電話：{{ booking.customerPhone || '舊訂單未留存' }}</span><span>信箱：{{ booking.customerEmail || '未提供' }}</span><span>訂單編號：{{ booking.id }}</span></div><div><h3>{{ booking.serviceName }} <small>{{ booking.designCategory }}<span v-if="booking.designWorkTitle">・{{ booking.designWorkTitle }}</span></small></h3><span><small v-if="booking.selectedAddOns && booking.selectedAddOns.length">加購：{{ getBookingAddOnSummary(booking) }}</small><span>{{ bookingPriceDisplay(booking) }}・{{ bookingWorkDuration(booking) }}</span></span></div><span :class="`status status--${booking.status}`">{{ statusLabel(booking.status) }}</span></div>
               <div class="admin-booking-meta">下單時間：{{ formatBookingCreatedAt(booking.createdAt) }}</div>
               <div class="admin-booking-actions">
                 <button type="button" @click="startEditingBookingPrice(booking)">編輯金額</button>
@@ -50,7 +54,6 @@
 
         <section v-if="activeTab === 'confirmed-bookings'" class="admin-section">
           <div class="section-title"><div><p class="eyebrow">CONFIRMED BOOKINGS</p><h2>已確認預約</h2></div><button type="button" class="refresh-button" @click="refreshBookings">重新整理</button></div>
-          <PageNotice v-if="actionMessage" :tone="actionError ? 'warning' : 'info'">{{ actionMessage }}</PageNotice>
           <div class="confirmed-calendar">
             <div class="confirmed-calendar-toolbar"><button type="button" aria-label="上個月" @click="changeConfirmedCalendarMonth(-1)">‹</button><strong>{{ confirmedCalendarLabel }}</strong><button type="button" aria-label="下個月" @click="changeConfirmedCalendarMonth(1)">›</button></div>
             <div class="confirmed-calendar-weekdays"><span v-for="weekday in weekdays" :key="weekday">{{ weekday }}</span></div>
@@ -64,7 +67,7 @@
           <div v-if="confirmedBookings.length === 0" class="empty-admin">目前沒有已確認預約。</div>
           <div v-else class="admin-list">
             <article v-for="booking in confirmedBookings" :key="booking.id" class="admin-booking">
-              <div class="admin-booking-main"><div><strong>{{ formatDate(booking.date) }}・{{ formatHour(booking.startHour) }}</strong><span>姓名：{{ booking.customerName || '未提供' }}</span><span>電話：{{ booking.customerPhone || '舊訂單未留存' }}</span><span>信箱：{{ booking.customerEmail || '未提供' }}</span><span>訂單編號：{{ booking.id }}</span></div><div><h3>{{ booking.serviceName }} <small>{{ booking.designCategory }}<span v-if="booking.designWorkTitle">・{{ booking.designWorkTitle }}</span></small></h3><span><small v-if="booking.selectedAddOns && booking.selectedAddOns.length">加購：{{ getBookingAddOnSummary(booking) }}</small><span>{{ bookingPriceDisplay(booking) }}・{{ formatDuration(booking.durationMinutes) }}</span></span></div><span :class="`status status--${booking.status}`">{{ statusLabel(booking.status) }}</span></div>
+              <div class="admin-booking-main"><div><strong>{{ formatDate(booking.date) }}・{{ formatHour(booking.startHour) }}</strong><span>姓名：{{ booking.customerName || '未提供' }}</span><span>電話：{{ booking.customerPhone || '舊訂單未留存' }}</span><span>信箱：{{ booking.customerEmail || '未提供' }}</span><span>訂單編號：{{ booking.id }}</span></div><div><h3>{{ booking.serviceName }} <small>{{ booking.designCategory }}<span v-if="booking.designWorkTitle">・{{ booking.designWorkTitle }}</span></small></h3><span><small v-if="booking.selectedAddOns && booking.selectedAddOns.length">加購：{{ getBookingAddOnSummary(booking) }}</small><span>{{ bookingPriceDisplay(booking) }}・{{ bookingWorkDuration(booking) }}</span></span></div><span :class="`status status--${booking.status}`">{{ statusLabel(booking.status) }}</span></div>
               <div class="admin-booking-actions"><button type="button" @click="changeBookingStatus(booking, 'completed')">標記完成</button><button type="button" class="danger-action" @click="changeBookingStatus(booking, 'cancelled')">管理員取消</button></div>
             </article>
           </div>
@@ -72,8 +75,7 @@
 
         <section v-if="activeTab === 'services'" class="admin-section">
           <div class="section-title"><div><p class="eyebrow">SERVICE MENU</p><h2>服務項目</h2></div><button type="button" class="subtle-button" @click="resetServiceDraft">新增服務</button></div>
-          <PageNotice v-if="actionMessage" :tone="actionError ? 'warning' : 'info'">{{ actionMessage }}</PageNotice>
-          <form class="admin-form" @submit.prevent="saveServiceForm">
+          <form ref="serviceEditor" class="admin-form service-editor" @submit.prevent="saveServiceForm">
             <h3>{{ serviceDraft.id ? '編輯服務' : '新增服務' }}</h3>
             <label>服務名稱<input v-model.trim="serviceDraft.name" required maxlength="60"></label>
             <label>服務說明<textarea v-model.trim="serviceDraft.description" rows="2" maxlength="240"></textarea></label>
@@ -83,6 +85,8 @@
               <div v-for="(addon, index) in serviceDraft.addOns" :key="addon.id" class="addon-editor-row">
                 <label>選項名稱<input v-model.trim="addon.name" required maxlength="60" placeholder="例如：卸甲"></label>
                 <label>加價（NT$）<input v-model.number="addon.price" type="number" min="0" step="1" required></label>
+                <label>施作時間（分鐘）<input v-model.number="addon.durationMinutes" type="number" min="0" max="240" step="1" required></label>
+                <label>數量上限<input v-model.number="addon.maxQuantity" type="number" min="1" max="10" step="1" required></label>
                 <button type="button" class="addon-remove" :aria-label="`移除第 ${index + 1} 個加購選項`" @click="removeServiceAddon(index)">移除</button>
               </div>
               <button type="button" class="subtle-button addon-add" @click="addServiceAddon">＋新增加購選項</button>
@@ -91,13 +95,12 @@
             <div class="form-actions"><button class="primary-action" type="submit" :disabled="saving">{{ saving ? '儲存中…' : '儲存服務' }}</button><button v-if="serviceDraft.id" type="button" @click="resetServiceDraft">取消編輯</button></div>
           </form>
           <div class="admin-list">
-            <article v-for="service in services" :key="service.id" class="catalog-row"><div><strong>{{ service.name }}</strong><span>{{ service.description }}・{{ Number(service.price) === 0 ? '私訊報價' : `NT$ ${service.price}` }}・{{ service.durationMinutes }} 分鐘</span><small v-for="addon in service.addOns || []" :key="addon.id">加購：{{ addon.name }}・+NT$ {{ addon.price }}</small><small>{{ service.active ? '上架中' : '已停用' }}</small></div><div class="row-actions"><button type="button" @click="editService(service)">編輯</button><button type="button" @click="toggleService(service)">{{ service.active ? '停用' : '啟用' }}</button></div></article>
+            <article v-for="service in services" :key="service.id" class="catalog-row"><div><strong>{{ service.name }}</strong><span>{{ service.description }}・{{ Number(service.price) === 0 ? '私訊報價' : `NT$ ${service.price}` }}・{{ service.durationMinutes }} 分鐘</span><small v-for="addon in service.addOns || []" :key="addon.id">加購：{{ addon.name }}・+NT$ {{ addon.price }}・施作 {{ Number(addon.durationMinutes) || 0 }} 分鐘・最多 {{ Number(addon.maxQuantity) || 10 }} 個</small><small>{{ service.active ? '上架中' : '已停用' }}</small></div><div class="row-actions"><button type="button" @click="editService(service)">編輯</button><button type="button" @click="toggleService(service)">{{ service.active ? '停用' : '啟用' }}</button></div></article>
           </div>
         </section>
 
         <section v-if="activeTab === 'works'" class="admin-section">
           <div class="section-title"><div><p class="eyebrow">PORTFOLIO</p><h2>作品展示</h2></div><button type="button" class="subtle-button" @click="resetWorkDraft">新增作品</button></div>
-          <PageNotice v-if="actionMessage" :tone="actionError ? 'warning' : 'info'">{{ actionMessage }}</PageNotice>
           <form class="admin-form" @submit.prevent="saveWorkForm">
             <h3>{{ workDraft.id ? '編輯作品' : '新增作品' }}</h3>
             <label>作品名稱<input v-model.trim="workDraft.title" required maxlength="60"></label>
@@ -114,12 +117,26 @@
 
         <section v-if="activeTab === 'schedule'" class="admin-section">
           <div class="section-title"><div><p class="eyebrow">HOURS & DAYS OFF</p><h2>營業時間與公休日</h2></div></div>
-          <PageNotice v-if="actionMessage" :tone="actionError ? 'warning' : 'info'">{{ actionMessage }}</PageNotice>
           <form class="admin-form" @submit.prevent="saveHours">
             <h3>每日營業時間</h3>
             <div class="form-row"><label>開始時間<select v-model.number="settings.openHour"><option v-for="hour in allHours" :key="hour" :value="hour">{{ formatHour(hour) }}</option></select></label><label>結束時間<select v-model.number="settings.closeHour"><option v-for="hour in closingHours" :key="hour" :value="hour">{{ formatHour(hour) }}</option></select></label></div>
             <p class="form-hint">目前為每小時一個開始時段，兩筆預約開始時間至少相隔 4 小時。最後時段會依服務時間及結束時間自動限制。</p>
             <button class="primary-action" type="submit" :disabled="saving">{{ saving ? '儲存中…' : '儲存營業時間' }}</button>
+          </form>
+          <form class="admin-form" @submit.prevent="saveCapacityOverride">
+            <h3>每日預約名額</h3>
+            <p class="form-hint">每個日期預設最多接 2 組預約。複選日期後設定名額，所選日期會套用相同數量。</p>
+            <div class="holiday-calendar-toolbar"><button type="button" aria-label="上個月" @click="changeCapacityMonth(-1)">‹</button><strong>{{ capacityCalendarLabel }}</strong><button type="button" aria-label="下個月" @click="changeCapacityMonth(1)">›</button></div>
+            <div class="holiday-calendar-weekdays" aria-hidden="true"><span v-for="weekday in weekdays" :key="weekday">{{ weekday }}</span></div>
+            <div class="holiday-calendar-grid" role="group" aria-label="選取每日名額日期">
+              <span v-for="cell in capacityCalendarCells" :key="cell.key" :class="{ 'holiday-calendar-empty': !cell.date }">
+                <button v-if="cell.date" type="button" :class="{ selected: selectedCapacityDates.includes(cell.date), existing: isCapacityOverrideDate(cell.date) }" :aria-pressed="selectedCapacityDates.includes(cell.date) ? 'true' : 'false'" @click="toggleSelectedCapacityDate(cell.date)">{{ cell.day }}</button>
+              </span>
+            </div>
+            <p class="form-hint">點日期即可複選，再次點擊可取消；可切換月份繼續選取。已選取 {{ selectedCapacityDates.length }} 天。</p>
+            <label>名額（組）<input v-model.number="capacityDraft.capacity" type="number" min="1" max="20" step="1" required></label>
+            <button class="primary-action" type="submit" :disabled="saving || selectedCapacityDates.length === 0">{{ saving ? '儲存中…' : `批次設定 ${selectedCapacityDates.length} 天名額` }}</button>
+            <div v-if="capacityOverrides.length" class="admin-list capacity-list"><article v-for="item in capacityOverrides" :key="item.id" class="catalog-row"><div><strong>{{ item.date }}</strong><span>每日 {{ item.capacity }} 組</span></div><button type="button" @click="removeCapacityOverride(item)">恢復預設 2 組</button></article></div>
           </form>
           <form class="admin-form" @submit.prevent="addBlockedDate">
             <h3>用月曆選取公休日</h3>
@@ -169,6 +186,9 @@ import {
   getAllServices,
   getAllWorks,
   getBlockedDates,
+  getBookingCapacityOverrides,
+  saveBookingCapacityOverridesBatch,
+  deleteBookingCapacityOverride,
   saveBlockedDatesBatch,
   saveBookingSettings,
   saveService,
@@ -194,11 +214,16 @@ export default {
       services: [],
       works: [],
       blockedDates: [],
+      capacityOverrides: [],
+      capacityDraft: { capacity: 2 },
+      selectedCapacityDates: [],
+      capacityCalendarMonth: getTaipeiDateString().slice(0, 7),
       confirmedCalendarMonth: getTaipeiDateString().slice(0, 7),
       settings: { ...DEFAULT_BOOKING_SETTINGS },
       loading: false,
       saving: false,
       savingBookingPrice: false,
+      actionMessageTimeout: null,
       editingBookingPriceId: '',
       bookingPriceDraft: 0,
       loadError: '',
@@ -275,6 +300,23 @@ export default {
       }
       while (cells.length % 7 !== 0) cells.push({ key: `empty-${cells.length}`, date: '' })
       return cells
+    },
+    capacityCalendarLabel () {
+      const [year, month] = this.capacityCalendarMonth.split('-').map(Number)
+      return new Intl.DateTimeFormat('zh-TW', { timeZone: 'UTC', year: 'numeric', month: 'long' })
+        .format(new Date(Date.UTC(year, month - 1, 1)))
+    },
+    capacityCalendarCells () {
+      const [year, month] = this.capacityCalendarMonth.split('-').map(Number)
+      const firstWeekday = new Date(Date.UTC(year, month - 1, 1)).getUTCDay()
+      const daysInMonth = new Date(Date.UTC(year, month, 0)).getUTCDate()
+      const cells = Array.from({ length: firstWeekday }, (_, index) => ({ key: `capacity-empty-${index}`, date: '' }))
+      for (let day = 1; day <= daysInMonth; day += 1) {
+        const date = `${this.capacityCalendarMonth}-${String(day).padStart(2, '0')}`
+        cells.push({ key: date, date, day })
+      }
+      while (cells.length % 7 !== 0) cells.push({ key: `capacity-empty-${cells.length}`, date: '' })
+      return cells
     }
   },
   watch: {
@@ -285,6 +327,9 @@ export default {
       }
     }
   },
+  beforeDestroy () {
+    if (this.actionMessageTimeout) clearTimeout(this.actionMessageTimeout)
+  },
   methods: {
     getBookingTotalPrice,
     getBookingAddOnSummary,
@@ -294,6 +339,11 @@ export default {
         return Number(booking.totalPrice) === 0 ? '私訊報價' : `NT$ ${getBookingTotalPrice(booking)}`
       }
       return Number(booking.price) === 0 ? '私訊報價' : `NT$ ${getBookingTotalPrice(booking)}`
+    },
+    bookingWorkDuration (booking) {
+      const baseDuration = Number(booking.serviceDurationMinutes !== undefined ? booking.serviceDurationMinutes : booking.durationMinutes)
+      const workDuration = Math.max(0, baseDuration - 30) + (Number(booking.addOnDurationMinutes) || 0)
+      return formatDuration(workDuration)
     },
     timestampDate (value) {
       if (value && typeof value.toDate === 'function') return value.toDate()
@@ -327,8 +377,8 @@ export default {
       this.loading = true
       this.loadError = ''
       try {
-        const [bookings, services, works, blockedDates, settings] = await Promise.all([
-          getAllBookings(), getAllServices(), getAllWorks(), getBlockedDates(), getAdminBookingSettings()
+        const [bookings, services, works, blockedDates, capacityOverrides, settings] = await Promise.all([
+          getAllBookings(), getAllServices(), getAllWorks(), getBlockedDates(), getBookingCapacityOverrides(), getAdminBookingSettings()
         ])
         this.bookings = bookings
         this.services = services.sort((a, b) => (a.sortOrder || 0) - (b.sortOrder || 0))
@@ -337,10 +387,13 @@ export default {
         const expiredDates = blockedDates.filter(date => date.date < today)
         await Promise.all(expiredDates.map(date => deleteBlockedDate(date.id)))
         this.blockedDates = blockedDates.filter(date => date.date >= today).sort((a, b) => a.date.localeCompare(b.date))
+        this.capacityOverrides = capacityOverrides.filter(item => item.date >= today).sort((a, b) => a.date.localeCompare(b.date))
         this.settings = { ...DEFAULT_BOOKING_SETTINGS, ...(settings || {}) }
         if (!settings) await saveBookingSettings(this.settings)
       } catch (error) {
-        this.loadError = '請確認已部署 Firestore 安全規則，且目前帳號具有管理者權限。'
+        this.loadError = error && error.code === 'permission-denied'
+          ? 'Firestore 拒絕讀取管理資料。請在專案根目錄執行 firebase deploy --only firestore:rules --project nanu-nail 更新規則；若已部署，請確認目前登入帳號有 admin: true 管理員權限。'
+          : `載入管理資料失敗${error && error.code ? `（${error.code}）` : ''}。請確認 Firebase 專案設定與 Firestore 安全規則。`
       } finally {
         this.loading = false
       }
@@ -398,7 +451,7 @@ export default {
       return { pending: '待確認', confirmed: '已確認', cancelled: '已取消', completed: '已完成' }[status] || '未知狀態'
     },
     async saveServiceForm () {
-      const invalidAddOn = this.serviceDraft.addOns.some(addon => !addon.name.trim() || !Number.isInteger(Number(addon.price)) || Number(addon.price) < 0)
+      const invalidAddOn = this.serviceDraft.addOns.some(addon => !addon.name.trim() || !Number.isInteger(Number(addon.price)) || Number(addon.price) < 0 || !Number.isInteger(Number(addon.durationMinutes)) || Number(addon.durationMinutes) < 0 || Number(addon.durationMinutes) > 240 || !Number.isInteger(Number(addon.maxQuantity)) || Number(addon.maxQuantity) < 1 || Number(addon.maxQuantity) > 10)
       if (!this.serviceDraft.name || !Number.isFinite(Number(this.serviceDraft.price)) || this.serviceDraft.price < 0 || this.serviceDraft.durationMinutes < 1 || invalidAddOn) {
         this.flash('請確認服務名稱、價格和服務時間。', true)
         return
@@ -416,12 +469,21 @@ export default {
       }
     },
     editService (service) {
-      this.serviceDraft = { ...service, addOns: (service.addOns || []).map(addon => ({ ...addon })) }
+      this.serviceDraft = {
+        ...service,
+        addOns: (service.addOns || []).map(addon => ({
+          durationMinutes: 0,
+          maxQuantity: 10,
+          ...addon
+        }))
+      }
       this.actionMessage = ''
-      window.scrollTo({ top: 0, behavior: 'smooth' })
+      this.$nextTick(() => {
+        if (this.$refs.serviceEditor) this.$refs.serviceEditor.scrollIntoView({ behavior: 'smooth', block: 'start' })
+      })
     },
     addServiceAddon () {
-      this.serviceDraft.addOns.push({ id: `addon-${Date.now()}-${Math.random().toString(36).slice(2, 8)}`, name: '', price: 0 })
+      this.serviceDraft.addOns.push({ id: `addon-${Date.now()}-${Math.random().toString(36).slice(2, 8)}`, name: '', price: 0, durationMinutes: 0, maxQuantity: 10 })
     },
     removeServiceAddon (index) {
       this.serviceDraft.addOns.splice(index, 1)
@@ -498,6 +560,42 @@ export default {
         this.saving = false
       }
     },
+    async saveCapacityOverride () {
+      this.saving = true
+      try {
+        const count = await saveBookingCapacityOverridesBatch({ dates: this.selectedCapacityDates, capacity: this.capacityDraft.capacity })
+        this.capacityOverrides = (await getBookingCapacityOverrides()).filter(item => item.date >= getTaipeiDateString()).sort((a, b) => a.date.localeCompare(b.date))
+        this.selectedCapacityDates = []
+        this.flash(`已將 ${count} 天的每日名額設為 ${this.capacityDraft.capacity} 組。`)
+      } catch (error) {
+        this.flash(error.message || '儲存每日名額失敗。', true)
+      } finally {
+        this.saving = false
+      }
+    },
+    async removeCapacityOverride (item) {
+      try {
+        await deleteBookingCapacityOverride(item.id)
+        this.capacityOverrides = this.capacityOverrides.filter(value => value.id !== item.id)
+        this.flash(`${item.date} 已恢復預設 2 組名額。`)
+      } catch (error) {
+        this.flash('恢復預設名額失敗。', true)
+      }
+    },
+    changeCapacityMonth (offset) {
+      const [year, month] = this.capacityCalendarMonth.split('-').map(Number)
+      const nextMonth = new Date(Date.UTC(year, month - 1 + offset, 1))
+      this.capacityCalendarMonth = `${nextMonth.getUTCFullYear()}-${String(nextMonth.getUTCMonth() + 1).padStart(2, '0')}`
+    },
+    toggleSelectedCapacityDate (date) {
+      const index = this.selectedCapacityDates.indexOf(date)
+      if (index >= 0) this.selectedCapacityDates.splice(index, 1)
+      else this.selectedCapacityDates.push(date)
+      this.selectedCapacityDates.sort()
+    },
+    isCapacityOverrideDate (date) {
+      return this.capacityOverrides.some(item => item.date === date)
+    },
     changeHolidayMonth (offset) {
       const [year, month] = this.holidayCalendarMonth.split('-').map(Number)
       const nextMonth = new Date(Date.UTC(year, month - 1 + offset, 1))
@@ -556,8 +654,13 @@ export default {
       }
     },
     flash (message, isError = false) {
+      if (this.actionMessageTimeout) clearTimeout(this.actionMessageTimeout)
       this.actionMessage = message
       this.actionError = isError
+      this.actionMessageTimeout = setTimeout(() => {
+        this.actionMessage = ''
+        this.actionMessageTimeout = null
+      }, 3000)
     }
   }
 }
@@ -565,15 +668,17 @@ export default {
 
 <style scoped>
 .admin-page{width:min(1040px,90%);min-height:70vh;margin:0 auto;padding:38px 0 90px}
+.admin-toast{position:fixed;top:18px;left:50%;z-index:1000;display:flex;align-items:center;gap:10px;width:max-content;max-width:min(560px,calc(100vw - 32px));padding:13px 18px;transform:translateX(-50%);border:1px solid #c7d9c2;border-radius:6px;background:#edf5e9;color:#476543;box-shadow:0 8px 28px rgba(39,31,27,.18);font-size:14px;line-height:1.5}.admin-toast--error{border-color:#e5c5c0;background:#fbefed;color:#96544b}.admin-toast-icon{display:grid;place-items:center;width:21px;height:21px;flex:0 0 auto;border-radius:50%;background:#d6e7d1;font-weight:700}.admin-toast--error .admin-toast-icon{background:#f0d9d5}.admin-toast-transition-enter-active,.admin-toast-transition-leave-active{transition:opacity .18s ease,transform .18s ease}.admin-toast-transition-enter,.admin-toast-transition-leave-to{opacity:0;transform:translate(-50%,-8px)}
 .back-home{display:inline-block;margin-bottom:34px;color:var(--muted);font-size:14.666px}.admin-heading{margin-bottom:28px}.admin-heading .eyebrow{margin-bottom:8px}.admin-heading h1{margin:0 0 8px;font:400 clamp(28px,5vw,40px)/1.5 var(--serif);letter-spacing:.08em}.admin-heading>p:last-child{color:var(--muted);font-size:14.666px}
 .admin-auth{margin-top:20px}.loading-state{padding:32px 0;color:var(--muted);font-size:15.666px}.admin-toolbar{display:flex;align-items:center;justify-content:space-between;padding:14px 0;border-top:1px solid var(--line);border-bottom:1px solid var(--line)}.admin-toolbar>div{display:flex;align-items:center;gap:10px;font-size:14.666px}.admin-toolbar>div span{padding:4px 8px;border-radius:14px;background:#e9f1e8;color:#587255;font-size:11.666px}
 .admin-tabs{display:flex;gap:5px;overflow:auto;margin:28px 0 24px;border-bottom:1px solid var(--line)}.admin-tabs button{flex:0 0 auto;padding:12px 15px;border:0;border-bottom:2px solid transparent;background:transparent;color:var(--muted);font:14.666px var(--sans);cursor:pointer}.admin-tabs button.active{border-color:#a4796b;color:var(--ink)}.admin-section{padding-bottom:20px}.section-title{display:flex;align-items:center;justify-content:space-between;margin-bottom:22px}.section-title .eyebrow{margin-bottom:7px}.section-title h2{margin:0;font:400 24px var(--serif)}.refresh-button,.subtle-button{padding:9px 13px;border:1px solid var(--line);background:transparent;color:var(--ink);font:13.666px var(--sans);cursor:pointer}.empty-admin{padding:24px 10px;background:var(--cream);color:var(--muted);font-size:14.666px;text-align:center}
 .admin-list{border-top:1px solid var(--line)}.admin-booking,.catalog-row{padding:17px 8px;border-bottom:1px solid var(--line)}.admin-booking-main{display:grid;grid-template-columns:170px 1fr auto;align-items:center;gap:18px}.admin-booking-main>div{display:grid;gap:6px}.admin-booking-main strong{font-size:14.666px;font-weight:500}.admin-booking-main span{color:var(--muted);font-size:12.666px}.admin-booking-main h3{margin:0;font:15px var(--serif);font-weight:400}.admin-booking-main h3 small{display:block;margin-top:5px;color:var(--muted);font:12.666px var(--sans)}.admin-booking-actions{display:flex;justify-content:flex-end;gap:8px;margin-top:12px}.admin-booking-actions button,.row-actions button,.catalog-row>button{padding:7px 10px;border:1px solid var(--line);background:#fffdfa;color:var(--ink);font:12.666px var(--sans);cursor:pointer}.admin-booking-actions .danger-action{color:#9b5145}.status{padding:5px 9px;border-radius:18px;background:#f4ece6;color:#8d6658;font-size:12.666px!important;white-space:nowrap}.status--confirmed{background:#e9f1e8;color:#587255!important}.status--cancelled{background:#f4e9e7;color:#935c52!important}.status--completed{background:#eeeae5;color:#756960!important}
 .admin-form{display:grid;gap:14px;margin:20px 0 26px;padding:20px;border:1px solid var(--line);background:#fffdfa}.admin-form h3,.subsection-heading{margin:0;font:17px var(--serif);font-weight:400}.admin-form label{display:grid;gap:7px;color:#665c56;font-size:12.666px}.admin-form input,.admin-form textarea,.admin-form select{width:100%;min-height:38px;padding:9px 10px;border:1px solid var(--line);background:#fff;color:var(--ink);font:14.666px var(--sans)}.admin-form textarea{resize:vertical}.form-row{display:grid;grid-template-columns:repeat(3,minmax(0,1fr));gap:12px}.admin-form .check-label{display:flex;align-items:center;gap:8px}.admin-form .check-label input{width:15px;min-height:15px}.form-actions{display:flex;gap:8px}.form-actions button,.primary-action{width:max-content;padding:10px 14px;border:1px solid var(--line);background:transparent;color:var(--ink);font:13.666px var(--sans);cursor:pointer}.form-actions .primary-action,.primary-action{border-color:var(--ink);background:var(--ink);color:#fff}.primary-action:disabled{opacity:.5;cursor:wait}.form-hint{margin:-5px 0 0;color:var(--muted);font-size:12.666px;line-height:1.8}.catalog-row{display:flex;align-items:center;justify-content:space-between;gap:14px}.catalog-row>div:first-child{display:grid;gap:6px;min-width:0}.catalog-row strong{font-size:14.666px;font-weight:500}.catalog-row span,.catalog-row small{color:var(--muted);font-size:12.666px}.row-actions{display:flex;gap:6px;flex:0 0 auto}.subsection-heading{margin:26px 0 14px}
 .holiday-calendar-toolbar{display:grid;grid-template-columns:38px 1fr 38px;align-items:center;gap:10px;max-width:440px}.holiday-calendar-toolbar strong{text-align:center;font:16px var(--serif);font-weight:400}.holiday-calendar-toolbar button{height:36px;border:1px solid var(--line);background:#fffdfa;color:var(--ink);font:20px var(--sans);cursor:pointer}.holiday-calendar-weekdays,.holiday-calendar-grid{display:grid;grid-template-columns:repeat(7,minmax(0,1fr));gap:6px;max-width:440px}.holiday-calendar-weekdays{text-align:center;color:var(--muted);font-size:12.666px}.holiday-calendar-weekdays span{padding:7px 0}.holiday-calendar-grid>span{display:grid;place-items:center;min-height:40px}.holiday-calendar-grid button{width:38px;height:38px;border:1px solid var(--line);border-radius:50%;background:#fffdfa;color:var(--ink);font:14.666px var(--sans);cursor:pointer}.holiday-calendar-grid button.existing{border-color:#c77b72;color:#a55e56}.holiday-calendar-grid button.selected{border-color:#a55e56;background:#a55e56;color:white}.holiday-calendar-empty{visibility:hidden}.open-month-list{display:grid;gap:6px}.open-month-row{display:flex;align-items:center;justify-content:space-between;padding:9px 10px;background:var(--cream);font-size:13.666px}.open-month-row button{padding:5px 9px;border:1px solid var(--line);background:#fffdfa;color:#935c52;font:12.666px var(--sans);cursor:pointer}
-.addon-editor{display:grid;gap:12px;margin:0;padding:14px;border:1px solid var(--line)}.addon-editor legend{padding:0 6px;color:var(--ink);font:15.333px var(--serif)}.addon-editor-row{display:grid;grid-template-columns:minmax(0,1fr) minmax(0,160px) auto;align-items:end;gap:10px}.addon-remove{min-height:38px;padding:8px 10px;border:1px solid var(--line);background:#fffdfa;color:#935c52;font:12.666px var(--sans);cursor:pointer}.addon-add{margin-top:2px}.text-link{display:inline-block;margin-top:28px;font-size:14.666px}.text-link span{margin-left:8px}
+.addon-editor{display:grid;gap:12px;margin:0;padding:14px;border:1px solid var(--line)}.addon-editor legend{padding:0 6px;color:var(--ink);font:15.333px var(--serif)}.addon-editor-row{display:grid;grid-template-columns:minmax(0,1.4fr) repeat(3,minmax(0,130px)) auto;align-items:end;gap:10px}.addon-remove{min-height:38px;padding:8px 10px;border:1px solid var(--line);background:#fffdfa;color:#935c52;font:12.666px var(--sans);cursor:pointer}.addon-add{margin-top:2px}.text-link{display:inline-block;margin-top:28px;font-size:14.666px}.text-link span{margin-left:8px}
 @media(max-width:700px){.admin-page{padding-top:28px}.admin-booking-main{grid-template-columns:1fr auto;gap:10px}.admin-booking-main>div:nth-child(2){grid-column:1/2}.admin-booking-main>.status{grid-column:2;grid-row:1}.admin-booking-actions{justify-content:flex-start}.form-row{grid-template-columns:1fr 1fr}.catalog-row{align-items:flex-start}.row-actions{flex-direction:column}.admin-toolbar{align-items:flex-start;gap:12px}.admin-toolbar .auth-control{font-size:12.666px}}
 .admin-booking-meta{margin-top:8px;color:var(--muted);font-size:12.666px}.confirmed-calendar{margin:8px 0 30px;padding:16px;border:1px solid var(--line);background:#fffdfa}.confirmed-calendar-toolbar{display:grid;grid-template-columns:38px 1fr 38px;align-items:center;gap:10px;margin-bottom:12px}.confirmed-calendar-toolbar strong{text-align:center;font:16px var(--serif);font-weight:400}.confirmed-calendar-toolbar button{height:36px;border:1px solid var(--line);background:#fff;color:var(--ink);font:20px var(--sans);cursor:pointer}.confirmed-calendar-weekdays,.confirmed-calendar-grid{display:grid;grid-template-columns:repeat(7,minmax(0,1fr));gap:5px}.confirmed-calendar-weekdays{text-align:center;color:var(--muted);font-size:12.666px}.confirmed-calendar-weekdays span{padding:6px 0}.confirmed-calendar-cell{min-width:0;min-height:94px;padding:5px;border:1px solid var(--line);background:#fff}.confirmed-calendar-cell>strong{display:block;margin-bottom:5px;font-size:12.666px;font-weight:500}.confirmed-calendar-cell--empty{visibility:hidden}.confirmed-calendar-event{display:grid;gap:2px;margin:3px 0;padding:4px;border-left:2px solid #8b6c5c;background:#f5eee9;color:#53463f;font-size:11.666px;overflow-wrap:anywhere}.confirmed-calendar-event b{font-size:11.666px}.confirmed-calendar-event small{color:var(--muted);font-size:10.666px}@media(max-width:600px){.confirmed-calendar{padding:8px}.confirmed-calendar-grid,.confirmed-calendar-weekdays{gap:2px}.confirmed-calendar-cell{min-height:65px;padding:3px}.confirmed-calendar-event{padding:2px;font-size:10.666px}.confirmed-calendar-event small{display:none}}
 @media(max-width:600px){.addon-editor-row{grid-template-columns:1fr 1fr}.addon-remove{width:max-content}}
 .booking-price-editor{display:flex;align-items:flex-end;gap:8px;margin-top:10px;padding:12px;background:var(--cream)}.booking-price-editor label{display:grid;gap:6px;color:var(--muted);font-size:12.666px}.booking-price-editor input{width:160px;min-height:36px;padding:8px 10px;border:1px solid var(--line);background:#fff;color:var(--ink);font:14px var(--sans)}.booking-price-editor button{min-height:36px;padding:7px 10px;border:1px solid var(--line);background:#fffdfa;color:var(--ink);font:12.666px var(--sans);cursor:pointer}.booking-price-editor button:disabled{opacity:.5;cursor:wait}@media(max-width:600px){.booking-price-editor{flex-wrap:wrap}.booking-price-editor input{width:100%}}
+.service-editor{scroll-margin-top:24px}
 </style>
