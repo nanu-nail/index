@@ -25,6 +25,7 @@ function load (file, mocks = {}) {
 }
 
 const utils = load('src/utils/bookingClosures.js')
+const income = load('src/utils/bookingIncome.js', { './getBookingTotalPrice': load('src/utils/getBookingTotalPrice.js') })
 const plain = value => JSON.parse(JSON.stringify(value))
 const range = (startMinute, endMinute) => ({ startMinute, endMinute })
 const lunch = [range(720, 840)]
@@ -44,7 +45,8 @@ assert.deepEqual(plain(utils.remainingBusinessRanges(10, 19, [range(1020, 1200),
 const bookings = load('src/services/bookings.js', {
   'firebase/firestore': {},
   './firebase': { firebaseConfigured: false },
-  '../utils/bookingClosures': utils
+  '../utils/bookingClosures': utils,
+  '../utils/bookingIncome': income
 })
 const date = '2030-11-20'
 const now = new Date('2030-11-19T00:00:00+08:00')
@@ -99,7 +101,8 @@ async function checkTransactions () {
   const currentBookings = load('src/services/bookings.js', {
     'firebase/firestore': firestore,
     './firebase': { firebaseConfigured: true, db: {}, auth: {} },
-    '../utils/bookingClosures': utils
+    '../utils/bookingClosures': utils,
+    '../utils/bookingIncome': income
   })
   const request = { user: { uid: 'test-user' }, service: { id: 'test' }, date, startHour: 11, settings }
   await assert.rejects(currentBookings.createBooking(request), /關閉時段重疊/)

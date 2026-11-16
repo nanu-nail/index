@@ -29,6 +29,7 @@
       <template v-else>
         <nav class="admin-tabs" aria-label="管理功能">
           <button v-for="tab in tabs" :key="tab.id" type="button" :class="{ active: activeTab === tab.id }" @click="activeTab = tab.id">{{ tab.label }}</button>
+          <router-link class="admin-history-link" to="/admin/orders">歷史訂單與收入 ↗</router-link>
         </nav>
 
         <section v-if="activeTab === 'pending-bookings'" class="admin-section">
@@ -36,7 +37,7 @@
           <div v-if="pendingBookings.length === 0" class="empty-admin">目前沒有待確認預約。</div>
           <div v-else class="admin-list">
             <article v-for="booking in pendingBookings" :key="booking.id" class="admin-booking">
-              <div class="admin-booking-main"><div><strong>{{ formatDate(booking.date) }}・{{ formatHour(booking.startHour) }}</strong><span>姓名：{{ booking.customerName || '未提供' }}</span><span>電話：{{ booking.customerPhone || '舊訂單未留存' }}</span><span>信箱：{{ booking.customerEmail || '未提供' }}</span><span>訂單編號：{{ booking.id }}</span></div><div><h3>{{ booking.serviceName }} <small>{{ booking.designCategory }}<span v-if="booking.designWorkTitle">・{{ booking.designWorkTitle }}</span></small></h3><span><small v-if="booking.selectedAddOns && booking.selectedAddOns.length">加購：{{ getBookingAddOnSummary(booking) }}</small><span>{{ bookingPriceDisplay(booking) }}・{{ bookingWorkDuration(booking) }}</span></span></div><span :class="`status status--${booking.status}`">{{ statusLabel(booking.status) }}</span></div>
+              <div class="admin-booking-main"><div><strong>{{ formatDate(booking.date) }}・{{ formatHour(booking.startHour) }}</strong><span>姓名：{{ booking.customerName || '未提供' }}</span><span>電話：{{ booking.customerPhone || '舊訂單未留存' }}</span><span>信箱：{{ booking.customerEmail || '未提供' }}</span><span>訂單編號：{{ booking.id }}</span></div><div><h3>{{ booking.serviceName }} <small v-if="bookingDesignLabel(booking)">{{ bookingDesignLabel(booking) }}</small></h3><span><small v-if="booking.selectedAddOns && booking.selectedAddOns.length">加購：{{ getBookingAddOnSummary(booking) }}</small><span>{{ bookingPriceDisplay(booking) }}・{{ bookingWorkDuration(booking) }}</span></span></div><span :class="`status status--${booking.status}`">{{ statusLabel(booking.status) }}</span></div>
               <div class="admin-booking-meta">下單時間：{{ formatBookingCreatedAt(booking.createdAt) }}</div>
               <div class="admin-booking-actions">
                 <button type="button" @click="startEditingBookingPrice(booking)">編輯金額</button>
@@ -67,7 +68,7 @@
           <div v-if="confirmedBookings.length === 0" class="empty-admin">目前沒有已確認預約。</div>
           <div v-else class="admin-list">
             <article v-for="booking in confirmedBookings" :key="booking.id" class="admin-booking">
-              <div class="admin-booking-main"><div><strong>{{ formatDate(booking.date) }}・{{ formatHour(booking.startHour) }}</strong><span>姓名：{{ booking.customerName || '未提供' }}</span><span>電話：{{ booking.customerPhone || '舊訂單未留存' }}</span><span>信箱：{{ booking.customerEmail || '未提供' }}</span><span>訂單編號：{{ booking.id }}</span></div><div><h3>{{ booking.serviceName }} <small>{{ booking.designCategory }}<span v-if="booking.designWorkTitle">・{{ booking.designWorkTitle }}</span></small></h3><span><small v-if="booking.selectedAddOns && booking.selectedAddOns.length">加購：{{ getBookingAddOnSummary(booking) }}</small><span>{{ bookingPriceDisplay(booking) }}・{{ bookingWorkDuration(booking) }}</span></span></div><span :class="`status status--${booking.status}`">{{ statusLabel(booking.status) }}</span></div>
+              <div class="admin-booking-main"><div><strong>{{ formatDate(booking.date) }}・{{ formatHour(booking.startHour) }}</strong><span>姓名：{{ booking.customerName || '未提供' }}</span><span>電話：{{ booking.customerPhone || '舊訂單未留存' }}</span><span>信箱：{{ booking.customerEmail || '未提供' }}</span><span>訂單編號：{{ booking.id }}</span></div><div><h3>{{ booking.serviceName }} <small v-if="bookingDesignLabel(booking)">{{ bookingDesignLabel(booking) }}</small></h3><span><small v-if="booking.selectedAddOns && booking.selectedAddOns.length">加購：{{ getBookingAddOnSummary(booking) }}</small><span>{{ bookingPriceDisplay(booking) }}・{{ bookingWorkDuration(booking) }}</span></span></div><span :class="`status status--${booking.status}`">{{ statusLabel(booking.status) }}</span></div>
               <div class="admin-booking-actions"><button type="button" @click="changeBookingStatus(booking, 'completed')">標記完成</button><button type="button" class="danger-action" @click="changeBookingStatus(booking, 'cancelled')">管理員取消</button></div>
             </article>
           </div>
@@ -420,6 +421,10 @@ export default {
     if (this.actionMessageTimeout) clearTimeout(this.actionMessageTimeout)
   },
   methods: {
+    bookingDesignLabel (booking) {
+      const category = String(booking.designCategory || '').trim()
+      return [category === '未指定' ? '' : category, booking.designWorkTitle].filter(Boolean).join('・')
+    },
     timeToMinute (value) {
       if (!/^\d{2}:\d{2}$/.test(value)) return NaN
       const [hour, minute] = value.split(':').map(Number)
@@ -811,6 +816,7 @@ export default {
 </script>
 
 <style scoped>
+.admin-history-link{flex:0 0 auto;margin-left:auto;padding:12px 15px;border-bottom:2px solid transparent;color:#8d6658;font-size:14.666px;white-space:nowrap}.admin-history-link:hover{border-color:#a4796b}
 .schedule-panel{margin:24px 0;padding:24px;border:1px solid var(--line);border-radius:12px;background:#fffdfa;overflow:hidden}.schedule-panel-heading{display:flex;align-items:flex-start;justify-content:space-between;gap:16px;padding-bottom:20px;border-bottom:1px solid var(--line)}.schedule-panel-heading .eyebrow{margin:0 0 8px;font-size:10px;letter-spacing:.16em;color:#a4796b}.schedule-panel-heading h3{margin:0;font:400 21px/1.5 var(--serif)}.schedule-panel-heading>div>p:last-child{margin:7px 0 0;color:var(--muted);font-size:13px;line-height:1.8}.schedule-count{flex:0 0 auto;margin-top:3px;padding:6px 10px;border-radius:20px;background:#f1e8e1;color:#8d6658;font-size:12px;white-space:nowrap}.schedule-panel-grid{display:grid;grid-template-columns:minmax(0,1.1fr) minmax(0,1fr);gap:28px;padding-top:22px}.schedule-panel .schedule-panel-form{min-width:0;margin:0;padding:0;border:0;background:transparent}.schedule-panel-summary{min-width:0;padding:20px;border:1px solid #e9dfd6;border-radius:9px;background:#f8f3ed;align-self:start}.schedule-column-heading{margin:0 0 16px;font:400 16px/1.5 var(--serif)}.schedule-panel .empty-admin{padding:24px 14px;border:1px dashed #dfd3c8;border-radius:7px;background:transparent;line-height:1.8}.schedule-panel-summary .catalog-row{padding:15px 0}.schedule-panel-summary .catalog-row:last-child{border-bottom:0}.schedule-panel-summary .row-actions{flex-direction:column}.schedule-panel .catalog-row strong{font-size:14px}.schedule-panel .catalog-row span{line-height:1.7;overflow-wrap:anywhere}.schedule-panel .form-hint{overflow-wrap:anywhere}.schedule-panel .subtle-button{width:max-content;max-width:100%}.schedule-panel .holiday-calendar-grid button{width:min(38px,100%);aspect-ratio:1;height:auto;min-height:30px}.schedule-panel .holiday-calendar-grid>span{min-width:0}.schedule-panel-grid--calendar{grid-template-columns:minmax(0,.85fr) minmax(0,1.15fr)}.schedule-panel-grid--calendar>.schedule-panel-form{padding-right:24px;border-right:1px solid var(--line);align-content:start}.schedule-panel-grid--calendar .form-row{grid-template-columns:minmax(0,1fr)}.schedule-holiday-column{min-width:0}.schedule-holiday-summary{margin-top:24px;padding-top:22px;border-top:1px solid var(--line)}.schedule-panel .open-month-row{gap:10px;border-radius:6px}.schedule-panel .primary-action{max-width:100%;line-height:1.6}
 @media(max-width:800px){.schedule-panel-grid,.schedule-panel-grid--calendar{grid-template-columns:minmax(0,1fr);gap:24px}.schedule-panel-grid--calendar>.schedule-panel-form{padding:0 0 24px;border-right:0;border-bottom:1px solid var(--line)}.schedule-panel-summary .row-actions{flex-direction:row}}
 @media(max-width:500px){.schedule-panel{padding:18px 14px;border-radius:9px}.schedule-panel-heading{gap:10px}.schedule-panel-heading h3{font-size:19px}.schedule-count{padding:5px 8px;font-size:11px}.schedule-panel-summary{padding:15px}.schedule-panel-summary .catalog-row{flex-wrap:wrap}.schedule-panel-summary .row-actions{width:100%}.schedule-panel .holiday-calendar-grid{gap:4px}}

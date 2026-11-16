@@ -13,6 +13,7 @@ import {
 } from 'firebase/firestore'
 import { auth, db, firebaseConfigured } from './firebase'
 import { overlapsClosure } from '../utils/bookingClosures'
+import { getBookingMonthRange } from '../utils/bookingIncome'
 
 export const DEFAULT_STAFF_ID = 'primary'
 export const OPEN_HOUR = 10
@@ -330,6 +331,19 @@ export async function getMyBookings (userId) {
 export async function getAllBookings () {
   const result = await getDocs(query(collection(db, 'bookings'), orderBy('date', 'desc')))
   return result.docs.map(item => ({ id: item.id, ...item.data() }))
+}
+
+export async function getBookingsByMonth (month) {
+  const { start, end } = getBookingMonthRange(month)
+  if (!firebaseConfigured) throw new Error('Firebase 尚未設定，無法查詢歷史訂單。')
+  const result = await getDocs(query(
+    collection(db, 'bookings'),
+    where('date', '>=', start),
+    where('date', '<', end),
+    orderBy('date', 'desc')
+  ))
+  return result.docs.map(item => ({ id: item.id, ...item.data() }))
+    .sort((a, b) => b.date.toMillis() - a.date.toMillis() || Number(b.startHour) - Number(a.startHour))
 }
 
 export async function setBookingPrice (booking, totalPrice) {

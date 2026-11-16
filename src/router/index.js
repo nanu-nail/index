@@ -4,6 +4,7 @@ import HomePage from '../views/HomePage.vue'
 import BookingPage from '../views/BookingPage.vue'
 import MemberCenter from '../views/MemberCenter.vue'
 import AdminDashboard from '../views/AdminDashboard.vue'
+import AdminOrderHistory from '../views/AdminOrderHistory.vue'
 
 Vue.use(VueRouter)
 
@@ -17,6 +18,7 @@ export default new VueRouter({
     { path: '/booking', name: 'booking', component: BookingPage },
     { path: '/member', name: 'member', component: MemberCenter },
     { path: '/admin', name: 'admin', component: AdminDashboard },
+    { path: '/admin/orders', name: 'admin-orders', component: AdminOrderHistory },
     { path: '*', redirect: '/' }
   ]
 })
