@@ -11,6 +11,7 @@ import {
 } from 'firebase/firestore'
 import { db } from './firebase'
 import { DEFAULT_BOOKING_SETTINGS } from './bookings'
+import { normalizeClosureRanges } from '../utils/bookingClosures'
 
 async function allDocuments (collectionName) {
   const result = await getDocs(collection(db, collectionName))
@@ -158,4 +159,29 @@ export async function saveBookingCapacityOverridesBatch ({ dates, capacity }) {
 
 export async function deleteBookingCapacityOverride (id) {
   await deleteDoc(doc(db, 'bookingCapacityOverrides', id))
+}
+
+export function getBookingClosures () {
+  return allDocuments('bookingClosures')
+}
+
+export async function saveBookingClosuresBatch ({ dates, ranges }) {
+  const uniqueDates = [...new Set(dates || [])].sort()
+  if (!uniqueDates.length || uniqueDates.length > 366) throw new Error('請選取 1 至 366 個日期。')
+  const normalized = normalizeClosureRanges(ranges)
+  const batch = writeBatch(db)
+  for (const date of uniqueDates) {
+    const timestamp = Date.parse(`${date}T00:00:00Z`)
+    if (!/^\d{4}-\d{2}-\d{2}$/.test(date) || !Number.isFinite(timestamp) || new Date(timestamp).toISOString().slice(0, 10) !== date) {
+      throw new Error('日期格式無效。')
+    }
+    const id = String(new Date(`${date}T00:00:00+08:00`).getTime())
+    batch.set(doc(db, 'bookingClosures', id), { date, ranges: normalized, updatedAt: serverTimestamp() })
+  }
+  await batch.commit()
+  return uniqueDates.length
+}
+
+export async function deleteBookingClosure (id) {
+  await deleteDoc(doc(db, 'bookingClosures', id))
 }

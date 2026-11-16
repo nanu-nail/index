@@ -79,13 +79,13 @@
             <h3>{{ serviceDraft.id ? '編輯服務' : '新增服務' }}</h3>
             <label>服務名稱<input v-model.trim="serviceDraft.name" required maxlength="60"></label>
             <label>服務說明<textarea v-model.trim="serviceDraft.description" rows="2" maxlength="240"></textarea></label>
-            <div class="form-row"><label>價格（NT$；0 顯示私訊報價）<input v-model.number="serviceDraft.price" type="number" min="0" step="1" required></label><label>預估時間（分鐘）<input v-model.number="serviceDraft.durationMinutes" type="number" min="1" max="240" step="1" required></label><label>排序<input v-model.number="serviceDraft.sortOrder" type="number" min="0" step="1"></label></div>
+            <div class="form-row"><label>價格（NT$；0 顯示私訊報價）<input v-model.number="serviceDraft.price" type="number" min="0" step="1" required></label><label>預估時間（分鐘；需加上預留 30 分鐘時間）<input v-model.number="serviceDraft.durationMinutes" type="number" min="1" step="1" required></label><label>排序<input v-model.number="serviceDraft.sortOrder" type="number" min="0" step="1"></label></div>
             <p class="form-hint">設定為 0 時，前台會顯示「私訊報價」。管理員可隨時在此填入價格並儲存服務項目。</p>
             <fieldset class="addon-editor"><legend>加購選項</legend>
               <div v-for="(addon, index) in serviceDraft.addOns" :key="addon.id" class="addon-editor-row">
                 <label>選項名稱<input v-model.trim="addon.name" required maxlength="60" placeholder="例如：卸甲"></label>
                 <label>加價（NT$）<input v-model.number="addon.price" type="number" min="0" step="1" required></label>
-                <label>施作時間（分鐘）<input v-model.number="addon.durationMinutes" type="number" min="0" max="240" step="1" required></label>
+                <label>施作時間（分鐘）<input v-model.number="addon.durationMinutes" type="number" min="0" step="1" required></label>
                 <label>數量上限<input v-model.number="addon.maxQuantity" type="number" min="1" max="10" step="1" required></label>
                 <button type="button" class="addon-remove" :aria-label="`移除第 ${index + 1} 個加購選項`" @click="removeServiceAddon(index)">移除</button>
               </div>
@@ -123,6 +123,81 @@
             <p class="form-hint">目前為每小時一個開始時段，兩筆預約開始時間至少相隔 4 小時。最後時段會依服務時間及結束時間自動限制。</p>
             <button class="primary-action" type="submit" :disabled="saving">{{ saving ? '儲存中…' : '儲存營業時間' }}</button>
           </form>
+          <section class="schedule-panel" aria-labelledby="calendar-panel-title">
+            <header class="schedule-panel-heading"><div><p class="eyebrow">BOOKING CALENDAR</p><h3 id="calendar-panel-title">開放月份與公休日</h3><p>設定可預約的月份，再安排整天休息的日期。</p></div><span class="schedule-count">公休 {{ blockedDates.length }} 天</span></header>
+            <div class="schedule-panel-grid schedule-panel-grid--calendar">
+          <form class="admin-form schedule-panel-form" @submit.prevent="addOpenMonth">
+            <h3>新增開放預約月份</h3>
+            <div class="form-row"><label>選擇月份<input v-model="openMonthDraft" type="month" required></label></div>
+            <p class="form-hint">第一次新增後，預約只會開放清單中的月份；未列出的月份會顯示為不可預約。尚未設定清單時，維持目前所有未來月份皆可查看的行為。</p>
+            <button class="primary-action" type="submit" :disabled="saving">新增開放月份</button>
+            <div v-if="settings.openMonths" class="open-month-list">
+              <div v-if="settings.openMonths.length === 0" class="empty-admin">目前沒有開放月份。</div>
+              <div v-for="month in settings.openMonths" :key="month" class="open-month-row"><strong>{{ formatOpenMonth(month) }}</strong><button type="button" @click="removeOpenMonth(month)">移除</button></div>
+            </div>
+          </form>
+          <div class="schedule-holiday-column">
+          <form class="admin-form schedule-panel-form" @submit.prevent="addBlockedDate">
+            <h3>用月曆選取公休日</h3>
+            <div class="holiday-calendar-toolbar"><button type="button" aria-label="上個月" @click="changeHolidayMonth(-1)">‹</button><strong>{{ holidayCalendarLabel }}</strong><button type="button" aria-label="下個月" @click="changeHolidayMonth(1)">›</button></div>
+            <div class="holiday-calendar-weekdays" aria-hidden="true"><span v-for="weekday in weekdays" :key="weekday">{{ weekday }}</span></div>
+            <div class="holiday-calendar-grid" role="group" aria-label="選取公休日日期">
+              <span v-for="cell in holidayCalendarCells" :key="cell.key" :class="{ 'holiday-calendar-empty': !cell.date }">
+                <button v-if="cell.date" type="button" :class="{ selected: selectedBlockedDates.includes(cell.date), existing: isBlockedDate(cell.date) }" :aria-pressed="selectedBlockedDates.includes(cell.date) ? 'true' : 'false'" @click="toggleSelectedBlockedDate(cell.date)">{{ cell.day }}</button>
+              </span>
+            </div>
+            <p class="form-hint">點日期即可複選，再次點擊可取消。跨月份選取時，可使用月曆左右按鈕切換。</p>
+            <p class="form-hint">已選取 {{ selectedBlockedDates.length }} 天</p>
+            <label>備註<input v-model.trim="blockedDateDraft.note" maxlength="120" placeholder="選填，例如店休"></label>
+            <button class="primary-action" type="submit" :disabled="saving || selectedBlockedDates.length === 0">{{ saving ? '儲存中…' : `批次新增 ${selectedBlockedDates.length} 天公休日` }}</button>
+          </form>
+          <div class="schedule-holiday-summary">
+          <h3 class="schedule-column-heading">已設定公休日</h3>
+          <div v-if="blockedDates.length === 0" class="empty-admin">目前沒有特殊公休日。</div>
+          <div v-else class="admin-list"><article v-for="date in blockedDates" :key="date.id" class="catalog-row"><div><strong>{{ date.date }}</strong><span>{{ date.note || '公休日' }}<small>{{ date.active ? '・生效中' : '・已停用' }}</small></span></div><button type="button" @click="removeBlockedDate(date)">刪除</button></article></div>
+          </div>
+          </div>
+            </div>
+          </section>
+          <section class="schedule-panel" aria-labelledby="closure-panel-title">
+            <header class="schedule-panel-heading"><div><p class="eyebrow">DATE EXCEPTIONS</p><h3 id="closure-panel-title">指定日期關閉時間</h3><p>安排臨時外出、晚開或提早休息的時段。</p></div><span class="schedule-count">已設定 {{ bookingClosures.length }} 天</span></header>
+            <div class="schedule-panel-grid">
+          <form ref="closureEditor" class="admin-form schedule-panel-form" @submit.prevent="saveClosures">
+            <h3>設定關閉時段</h3>
+            <p class="form-hint">從正常營業時間扣除關閉時段，服務含加購時間都不能跨越。全天休息仍可使用下方公休日設定。</p>
+            <div class="holiday-calendar-toolbar"><button type="button" aria-label="關閉時間上個月" @click="changeClosureMonth(-1)">‹</button><strong>{{ closureCalendarLabel }}</strong><button type="button" aria-label="關閉時間下個月" @click="changeClosureMonth(1)">›</button></div>
+            <div class="holiday-calendar-weekdays" aria-hidden="true"><span v-for="weekday in weekdays" :key="weekday">{{ weekday }}</span></div>
+            <div class="holiday-calendar-grid" role="group" aria-label="選取關閉時間日期">
+              <span v-for="cell in closureCalendarCells" :key="cell.key" :class="{ 'holiday-calendar-empty': !cell.date }">
+                <button v-if="cell.date" type="button" :class="{ selected: selectedClosureDates.includes(cell.date), existing: bookingClosures.some(item => item.date === cell.date) }" :aria-pressed="selectedClosureDates.includes(cell.date) ? 'true' : 'false'" @click="toggleClosureDate(cell.date)">{{ cell.day }}</button>
+              </span>
+            </div>
+            <p class="form-hint">已選取 {{ selectedClosureDates.length }} 天：{{ selectedClosureDates.join('、') || '尚未選取' }}。可跨月複選。</p>
+            <p class="form-hint">儲存會取代所選日期原有的關閉時段；重疊或相連時段會自動合併。</p>
+            <div v-for="(range, index) in closureDraft" :key="index" class="closure-range-row">
+              <label>關閉開始<input v-model="range.start" type="time" required></label>
+              <label>關閉結束<input v-model="range.end" type="time" required></label>
+              <button class="subtle-button" type="button" :disabled="closureDraft.length === 1 || saving" @click="closureDraft.splice(index, 1)">移除</button>
+            </div>
+            <button class="subtle-button" type="button" :disabled="closureDraft.length >= 8 || saving" @click="closureDraft.push({ start: '12:00', end: '14:00' })">新增關閉時段（最多 8 段）</button>
+            <p v-if="closureDraftError" class="form-hint" role="alert">{{ closureDraftError }}</p>
+            <p v-else class="form-hint">套用後營業時段：{{ businessRangesLabel(closureDraftRanges) }}（公休日仍全天休息）</p>
+            <div v-if="closureConflicts.length" class="closure-conflicts" role="alert">
+              <strong>以下既有預約與關閉時間重疊，原預約將保留：</strong>
+              <p v-for="booking in closureConflicts" :key="booking.id">{{ formatDate(booking.date) }} {{ formatHour(booking.startHour) }} · {{ booking.customerName || booking.customerEmail }} · {{ booking.serviceName }}</p>
+              <label class="check-label"><input v-model="acknowledgeClosureConflicts" type="checkbox">我已確認，將自行聯絡顧客處理</label>
+            </div>
+            <button class="primary-action" type="submit" :disabled="saving || !selectedClosureDates.length || !!closureDraftError || (closureConflicts.length > 0 && !acknowledgeClosureConflicts)">{{ saving ? '儲存中…' : `設定 ${selectedClosureDates.length} 天關閉時間` }}</button>
+          </form>
+          <div class="schedule-panel-summary">
+          <h3 class="schedule-column-heading">已設定關閉時間</h3>
+          <div v-if="!bookingClosures.length" class="empty-admin">目前沒有指定日期的關閉時間。</div>
+          <div v-else class="admin-list">
+            <article v-for="item in bookingClosures" :key="item.id" class="catalog-row"><div><strong>{{ item.date }}</strong><span>關閉：{{ rangesLabel(item.ranges) }}</span><span>營業：{{ isBlockedDate(item.date) ? '全天休息（公休日）' : businessRangesLabel(item.ranges) }}</span></div><div class="row-actions"><button type="button" :disabled="saving" @click="editClosure(item)">編輯</button><button type="button" :disabled="saving" @click="removeClosure(item)">移除限制</button></div></article>
+          </div>
+          </div>
+            </div>
+          </section>
           <form class="admin-form" @submit.prevent="saveCapacityOverride">
             <h3>每日預約名額</h3>
             <p class="form-hint">每個日期預設最多接 2 組預約。複選日期後設定名額，所選日期會套用相同數量。</p>
@@ -138,33 +213,6 @@
             <button class="primary-action" type="submit" :disabled="saving || selectedCapacityDates.length === 0">{{ saving ? '儲存中…' : `批次設定 ${selectedCapacityDates.length} 天名額` }}</button>
             <div v-if="capacityOverrides.length" class="admin-list capacity-list"><article v-for="item in capacityOverrides" :key="item.id" class="catalog-row"><div><strong>{{ item.date }}</strong><span>每日 {{ item.capacity }} 組</span></div><button type="button" @click="removeCapacityOverride(item)">恢復預設 2 組</button></article></div>
           </form>
-          <form class="admin-form" @submit.prevent="addBlockedDate">
-            <h3>用月曆選取公休日</h3>
-            <div class="holiday-calendar-toolbar"><button type="button" aria-label="上個月" @click="changeHolidayMonth(-1)">‹</button><strong>{{ holidayCalendarLabel }}</strong><button type="button" aria-label="下個月" @click="changeHolidayMonth(1)">›</button></div>
-            <div class="holiday-calendar-weekdays" aria-hidden="true"><span v-for="weekday in weekdays" :key="weekday">{{ weekday }}</span></div>
-            <div class="holiday-calendar-grid" role="group" aria-label="選取公休日日期">
-              <span v-for="cell in holidayCalendarCells" :key="cell.key" :class="{ 'holiday-calendar-empty': !cell.date }">
-                <button v-if="cell.date" type="button" :class="{ selected: selectedBlockedDates.includes(cell.date), existing: isBlockedDate(cell.date) }" :aria-pressed="selectedBlockedDates.includes(cell.date) ? 'true' : 'false'" @click="toggleSelectedBlockedDate(cell.date)">{{ cell.day }}</button>
-              </span>
-            </div>
-            <p class="form-hint">點日期即可複選，再次點擊可取消。跨月份選取時，可使用月曆左右按鈕切換。</p>
-            <p class="form-hint">已選取 {{ selectedBlockedDates.length }} 天</p>
-            <label>備註<input v-model.trim="blockedDateDraft.note" maxlength="120" placeholder="選填，例如店休"></label>
-            <button class="primary-action" type="submit" :disabled="saving || selectedBlockedDates.length === 0">{{ saving ? '儲存中…' : `批次新增 ${selectedBlockedDates.length} 天公休日` }}</button>
-          </form>
-          <form class="admin-form" @submit.prevent="addOpenMonth">
-            <h3>新增開放預約月份</h3>
-            <div class="form-row"><label>選擇月份<input v-model="openMonthDraft" type="month" required></label></div>
-            <p class="form-hint">第一次新增後，預約只會開放清單中的月份；未列出的月份會顯示為不可預約。尚未設定清單時，維持目前所有未來月份皆可查看的行為。</p>
-            <button class="primary-action" type="submit" :disabled="saving">新增開放月份</button>
-            <div v-if="settings.openMonths" class="open-month-list">
-              <div v-if="settings.openMonths.length === 0" class="empty-admin">目前沒有開放月份。</div>
-              <div v-for="month in settings.openMonths" :key="month" class="open-month-row"><strong>{{ formatOpenMonth(month) }}</strong><button type="button" @click="removeOpenMonth(month)">移除</button></div>
-            </div>
-          </form>
-          <h3 class="subsection-heading">已設定公休日</h3>
-          <div v-if="blockedDates.length === 0" class="empty-admin">目前沒有特殊公休日。</div>
-          <div v-else class="admin-list"><article v-for="date in blockedDates" :key="date.id" class="catalog-row"><div><strong>{{ date.date }}</strong><span>{{ date.note || '公休日' }}<small>{{ date.active ? '・生效中' : '・已停用' }}</small></span></div><button type="button" @click="removeBlockedDate(date)">刪除</button></article></div>
         </section>
       </template>
     </template>
@@ -180,7 +228,11 @@ import { firebaseConfigured } from '../services/firebase'
 import { getAllBookings, setBookingPrice, setBookingStatus, DEFAULT_BOOKING_SETTINGS, getTaipeiDateString } from '../services/bookings'
 import getBookingTotalPrice, { getBookingAddOnSummary } from '../utils/getBookingTotalPrice'
 import formatDuration from '../utils/formatDuration'
+import { normalizeClosureRanges, overlapsClosure, remainingBusinessRanges, formatMinute } from '../utils/bookingClosures'
 import {
+  getBookingClosures,
+  saveBookingClosuresBatch,
+  deleteBookingClosure,
   deleteBlockedDate,
   getAdminBookingSettings,
   getAllServices,
@@ -214,6 +266,11 @@ export default {
       services: [],
       works: [],
       blockedDates: [],
+      bookingClosures: [],
+      selectedClosureDates: [],
+      closureCalendarMonth: getTaipeiDateString().slice(0, 7),
+      closureDraft: [{ start: '12:00', end: '14:00' }],
+      acknowledgeClosureConflicts: false,
       capacityOverrides: [],
       capacityDraft: { capacity: 2 },
       selectedCapacityDates: [],
@@ -241,6 +298,37 @@ export default {
     }
   },
   computed: {
+    closureDraftRanges () {
+      try {
+        return normalizeClosureRanges(this.closureDraft.map(range => ({ startMinute: this.timeToMinute(range.start), endMinute: this.timeToMinute(range.end) })))
+      } catch (error) { return [] }
+    },
+    closureDraftError () {
+      return this.closureDraftRanges.length ? '' : '請確認每段關閉時間的結束時間晚於開始時間。'
+    },
+    closureConflicts () {
+      return this.bookings.filter(booking => {
+        if (!['pending', 'confirmed'].includes(booking.status)) return false
+        const date = getTaipeiDateString(this.timestampDate(booking.date))
+        return this.selectedClosureDates.includes(date) && overlapsClosure(booking.startHour * 60, booking.startHour * 60 + Number(booking.durationMinutes), this.closureDraftRanges)
+      })
+    },
+    closureConflictKey () {
+      return JSON.stringify([this.selectedClosureDates, this.closureDraftRanges, this.closureConflicts.map(booking => booking.id).sort()])
+    },
+    closureCalendarLabel () {
+      const [year, month] = this.closureCalendarMonth.split('-').map(Number)
+      return new Intl.DateTimeFormat('zh-TW', { timeZone: 'UTC', year: 'numeric', month: 'long' }).format(new Date(Date.UTC(year, month - 1, 1)))
+    },
+    closureCalendarCells () {
+      const [year, month] = this.closureCalendarMonth.split('-').map(Number)
+      const cells = Array.from({ length: new Date(Date.UTC(year, month - 1, 1)).getUTCDay() }, (_, index) => ({ key: `closure-empty-${index}`, date: '' }))
+      for (let day = 1; day <= new Date(Date.UTC(year, month, 0)).getUTCDate(); day += 1) {
+        const date = `${this.closureCalendarMonth}-${String(day).padStart(2, '0')}`
+        cells.push({ key: date, date, day })
+      }
+      return cells
+    },
     pendingBookings () {
       return this.bookings
         .filter(booking => booking.status === 'pending')
@@ -320,6 +408,7 @@ export default {
     }
   },
   watch: {
+    closureConflictKey () { this.acknowledgeClosureConflicts = false },
     'authState.isAdmin': {
       immediate: true,
       handler (isAdmin) {
@@ -331,6 +420,60 @@ export default {
     if (this.actionMessageTimeout) clearTimeout(this.actionMessageTimeout)
   },
   methods: {
+    timeToMinute (value) {
+      if (!/^\d{2}:\d{2}$/.test(value)) return NaN
+      const [hour, minute] = value.split(':').map(Number)
+      return hour < 24 && minute < 60 ? hour * 60 + minute : NaN
+    },
+    rangesLabel (ranges) {
+      return ranges.map(range => `${formatMinute(range.startMinute)}–${formatMinute(range.endMinute)}`).join('、') || '全天休息'
+    },
+    businessRangesLabel (ranges) {
+      return this.rangesLabel(remainingBusinessRanges(this.settings.openHour, this.settings.closeHour, ranges))
+    },
+    changeClosureMonth (offset) {
+      const [year, month] = this.closureCalendarMonth.split('-').map(Number)
+      const next = new Date(Date.UTC(year, month - 1 + offset, 1))
+      this.closureCalendarMonth = `${next.getUTCFullYear()}-${String(next.getUTCMonth() + 1).padStart(2, '0')}`
+    },
+    toggleClosureDate (date) {
+      if (this.selectedClosureDates.includes(date)) this.selectedClosureDates = this.selectedClosureDates.filter(item => item !== date)
+      else this.selectedClosureDates = [...this.selectedClosureDates, date].sort()
+    },
+    editClosure (item) {
+      this.selectedClosureDates = [item.date]
+      this.closureCalendarMonth = item.date.slice(0, 7)
+      this.closureDraft = item.ranges.map(range => ({ start: formatMinute(range.startMinute), end: formatMinute(range.endMinute) }))
+      this.$refs.closureEditor.scrollIntoView({ behavior: 'smooth', block: 'start' })
+    },
+    async saveClosures () {
+      if (this.saving || this.closureDraftError || !this.selectedClosureDates.length) return
+      this.saving = true
+      try {
+        const dates = [...this.selectedClosureDates]
+        const ranges = this.closureDraftRanges.map(range => ({ ...range }))
+        const conflictKey = this.closureConflictKey
+        const acknowledged = this.acknowledgeClosureConflicts
+        this.bookings = await getAllBookings()
+        await this.$nextTick()
+        if (conflictKey !== this.closureConflictKey || (this.closureConflicts.length && !acknowledged)) {
+          this.flash('預約或設定有更新，請確認關閉時段及衝突清單後再次儲存。', true)
+          return
+        }
+        const count = await saveBookingClosuresBatch({ dates, ranges })
+        this.bookingClosures = (await getBookingClosures()).filter(item => item.date >= getTaipeiDateString()).sort((a, b) => a.date.localeCompare(b.date))
+        this.selectedClosureDates = []
+        this.flash(`已設定 ${count} 天關閉時間，既有預約維持不變。`)
+      } catch (error) { this.flash(error.message || '儲存關閉時間失敗。', true) } finally { this.saving = false }
+    },
+    async removeClosure (item) {
+      this.saving = true
+      try {
+        await deleteBookingClosure(item.id)
+        this.bookingClosures = this.bookingClosures.filter(value => value.id !== item.id)
+        this.flash('已移除關閉時段；公休日與名額設定仍照常生效。')
+      } catch (error) { this.flash('移除關閉時間失敗。', true) } finally { this.saving = false }
+    },
     getBookingTotalPrice,
     getBookingAddOnSummary,
     formatDuration,
@@ -377,13 +520,14 @@ export default {
       this.loading = true
       this.loadError = ''
       try {
-        const [bookings, services, works, blockedDates, capacityOverrides, settings] = await Promise.all([
-          getAllBookings(), getAllServices(), getAllWorks(), getBlockedDates(), getBookingCapacityOverrides(), getAdminBookingSettings()
+        const [bookings, services, works, blockedDates, capacityOverrides, settings, bookingClosures] = await Promise.all([
+          getAllBookings(), getAllServices(), getAllWorks(), getBlockedDates(), getBookingCapacityOverrides(), getAdminBookingSettings(), getBookingClosures()
         ])
         this.bookings = bookings
         this.services = services.sort((a, b) => (a.sortOrder || 0) - (b.sortOrder || 0))
         this.works = works.sort((a, b) => (a.sortOrder || 0) - (b.sortOrder || 0))
         const today = getTaipeiDateString()
+        this.bookingClosures = bookingClosures.filter(item => item.date >= today).sort((a, b) => a.date.localeCompare(b.date))
         const expiredDates = blockedDates.filter(date => date.date < today)
         await Promise.all(expiredDates.map(date => deleteBlockedDate(date.id)))
         this.blockedDates = blockedDates.filter(date => date.date >= today).sort((a, b) => a.date.localeCompare(b.date))
@@ -451,8 +595,8 @@ export default {
       return { pending: '待確認', confirmed: '已確認', cancelled: '已取消', completed: '已完成' }[status] || '未知狀態'
     },
     async saveServiceForm () {
-      const invalidAddOn = this.serviceDraft.addOns.some(addon => !addon.name.trim() || !Number.isInteger(Number(addon.price)) || Number(addon.price) < 0 || !Number.isInteger(Number(addon.durationMinutes)) || Number(addon.durationMinutes) < 0 || Number(addon.durationMinutes) > 240 || !Number.isInteger(Number(addon.maxQuantity)) || Number(addon.maxQuantity) < 1 || Number(addon.maxQuantity) > 10)
-      if (!this.serviceDraft.name || !Number.isFinite(Number(this.serviceDraft.price)) || this.serviceDraft.price < 0 || this.serviceDraft.durationMinutes < 1 || invalidAddOn) {
+      const invalidAddOn = this.serviceDraft.addOns.some(addon => !addon.name.trim() || !Number.isInteger(Number(addon.price)) || Number(addon.price) < 0 || !Number.isSafeInteger(Number(addon.durationMinutes)) || Number(addon.durationMinutes) < 0 || !Number.isInteger(Number(addon.maxQuantity)) || Number(addon.maxQuantity) < 1 || Number(addon.maxQuantity) > 10)
+      if (!this.serviceDraft.name || !Number.isFinite(Number(this.serviceDraft.price)) || this.serviceDraft.price < 0 || !Number.isSafeInteger(Number(this.serviceDraft.durationMinutes)) || this.serviceDraft.durationMinutes < 1 || invalidAddOn) {
         this.flash('請確認服務名稱、價格和服務時間。', true)
         return
       }
@@ -667,6 +811,10 @@ export default {
 </script>
 
 <style scoped>
+.schedule-panel{margin:24px 0;padding:24px;border:1px solid var(--line);border-radius:12px;background:#fffdfa;overflow:hidden}.schedule-panel-heading{display:flex;align-items:flex-start;justify-content:space-between;gap:16px;padding-bottom:20px;border-bottom:1px solid var(--line)}.schedule-panel-heading .eyebrow{margin:0 0 8px;font-size:10px;letter-spacing:.16em;color:#a4796b}.schedule-panel-heading h3{margin:0;font:400 21px/1.5 var(--serif)}.schedule-panel-heading>div>p:last-child{margin:7px 0 0;color:var(--muted);font-size:13px;line-height:1.8}.schedule-count{flex:0 0 auto;margin-top:3px;padding:6px 10px;border-radius:20px;background:#f1e8e1;color:#8d6658;font-size:12px;white-space:nowrap}.schedule-panel-grid{display:grid;grid-template-columns:minmax(0,1.1fr) minmax(0,1fr);gap:28px;padding-top:22px}.schedule-panel .schedule-panel-form{min-width:0;margin:0;padding:0;border:0;background:transparent}.schedule-panel-summary{min-width:0;padding:20px;border:1px solid #e9dfd6;border-radius:9px;background:#f8f3ed;align-self:start}.schedule-column-heading{margin:0 0 16px;font:400 16px/1.5 var(--serif)}.schedule-panel .empty-admin{padding:24px 14px;border:1px dashed #dfd3c8;border-radius:7px;background:transparent;line-height:1.8}.schedule-panel-summary .catalog-row{padding:15px 0}.schedule-panel-summary .catalog-row:last-child{border-bottom:0}.schedule-panel-summary .row-actions{flex-direction:column}.schedule-panel .catalog-row strong{font-size:14px}.schedule-panel .catalog-row span{line-height:1.7;overflow-wrap:anywhere}.schedule-panel .form-hint{overflow-wrap:anywhere}.schedule-panel .subtle-button{width:max-content;max-width:100%}.schedule-panel .holiday-calendar-grid button{width:min(38px,100%);aspect-ratio:1;height:auto;min-height:30px}.schedule-panel .holiday-calendar-grid>span{min-width:0}.schedule-panel-grid--calendar{grid-template-columns:minmax(0,.85fr) minmax(0,1.15fr)}.schedule-panel-grid--calendar>.schedule-panel-form{padding-right:24px;border-right:1px solid var(--line);align-content:start}.schedule-panel-grid--calendar .form-row{grid-template-columns:minmax(0,1fr)}.schedule-holiday-column{min-width:0}.schedule-holiday-summary{margin-top:24px;padding-top:22px;border-top:1px solid var(--line)}.schedule-panel .open-month-row{gap:10px;border-radius:6px}.schedule-panel .primary-action{max-width:100%;line-height:1.6}
+@media(max-width:800px){.schedule-panel-grid,.schedule-panel-grid--calendar{grid-template-columns:minmax(0,1fr);gap:24px}.schedule-panel-grid--calendar>.schedule-panel-form{padding:0 0 24px;border-right:0;border-bottom:1px solid var(--line)}.schedule-panel-summary .row-actions{flex-direction:row}}
+@media(max-width:500px){.schedule-panel{padding:18px 14px;border-radius:9px}.schedule-panel-heading{gap:10px}.schedule-panel-heading h3{font-size:19px}.schedule-count{padding:5px 8px;font-size:11px}.schedule-panel-summary{padding:15px}.schedule-panel-summary .catalog-row{flex-wrap:wrap}.schedule-panel-summary .row-actions{width:100%}.schedule-panel .holiday-calendar-grid{gap:4px}}
+.closure-range-row{display:grid;grid-template-columns:1fr 1fr auto;align-items:end;gap:10px;max-width:520px}.closure-conflicts{padding:14px;background:#fbefed;color:#96544b;font-size:13px;line-height:1.8}.closure-conflicts p{margin:6px 0}.closure-conflicts .check-label{color:inherit}.closure-range-row input{min-width:0}@media(max-width:500px){.closure-range-row{grid-template-columns:1fr 1fr}.closure-range-row>button{grid-column:1/-1;width:max-content}}
 .admin-page{width:min(1040px,90%);min-height:70vh;margin:0 auto;padding:38px 0 90px}
 .admin-toast{position:fixed;top:18px;left:50%;z-index:1000;display:flex;align-items:center;gap:10px;width:max-content;max-width:min(560px,calc(100vw - 32px));padding:13px 18px;transform:translateX(-50%);border:1px solid #c7d9c2;border-radius:6px;background:#edf5e9;color:#476543;box-shadow:0 8px 28px rgba(39,31,27,.18);font-size:14px;line-height:1.5}.admin-toast--error{border-color:#e5c5c0;background:#fbefed;color:#96544b}.admin-toast-icon{display:grid;place-items:center;width:21px;height:21px;flex:0 0 auto;border-radius:50%;background:#d6e7d1;font-weight:700}.admin-toast--error .admin-toast-icon{background:#f0d9d5}.admin-toast-transition-enter-active,.admin-toast-transition-leave-active{transition:opacity .18s ease,transform .18s ease}.admin-toast-transition-enter,.admin-toast-transition-leave-to{opacity:0;transform:translate(-50%,-8px)}
 .back-home{display:inline-block;margin-bottom:34px;color:var(--muted);font-size:14.666px}.admin-heading{margin-bottom:28px}.admin-heading .eyebrow{margin-bottom:8px}.admin-heading h1{margin:0 0 8px;font:400 clamp(28px,5vw,40px)/1.5 var(--serif);letter-spacing:.08em}.admin-heading>p:last-child{color:var(--muted);font-size:14.666px}

@@ -32,6 +32,41 @@ service cloud.firestore {
       return exists(path) ? get(path).data.capacity : 2;
     }
 
+    function closurePath(date) {
+      let dateId = string(date.toMillis());
+      return /databases/$(database)/documents/bookingClosures/$(dateId);
+    }
+
+    function outsideClosureRange(ranges, index, start, end) {
+      return ranges.size() <= index
+        || end <= ranges[index].startMinute || start >= ranges[index].endMinute;
+    }
+
+    function outsideClosures(data) {
+      let path = closurePath(data.date);
+      let ranges = exists(path) ? get(path).data.ranges : [];
+      let start = data.startHour * 60;
+      let end = start + data.durationMinutes;
+      return outsideClosureRange(ranges, 0, start, end)
+        && outsideClosureRange(ranges, 1, start, end)
+        && outsideClosureRange(ranges, 2, start, end)
+        && outsideClosureRange(ranges, 3, start, end)
+        && outsideClosureRange(ranges, 4, start, end)
+        && outsideClosureRange(ranges, 5, start, end)
+        && outsideClosureRange(ranges, 6, start, end)
+        && outsideClosureRange(ranges, 7, start, end);
+    }
+
+    function validClosureRange(ranges, index) {
+      return ranges.size() <= index || (
+        ranges[index] is map
+        && ranges[index].keys().hasOnly(['startMinute', 'endMinute'])
+        && ranges[index].keys().hasAll(['startMinute', 'endMinute'])
+        && ranges[index].startMinute is int && ranges[index].endMinute is int
+        && ranges[index].startMinute >= 0 && ranges[index].endMinute <= 1440
+        && ranges[index].startMinute < ranges[index].endMinute);
+    }
+
     function withinConfiguredHours(data) {
       let localMidnight = data.date + duration.value(8, 'h');
       let settings = get(bookingSettingsPath()).data;
@@ -48,6 +83,7 @@ service cloud.firestore {
         && data.startHour >= settings.openHour
         && data.startHour < settings.closeHour
         && data.startHour * 60 + data.durationMinutes <= settings.closeHour * 60
+        && outsideClosures(data)
         && (!settings.keys().hasAny(['openMonths']) || settings.openMonths.hasAny([localMidnight.year() * 100 + localMidnight.month()]))
         && (!exists(blockedDatePath(data.date)) || get(blockedDatePath(data.date)).data.active != true);
     }
@@ -93,9 +129,9 @@ service cloud.firestore {
         && data.serviceId is string
         && data.serviceName is string
         && data.price is number && data.price >= 0
-        && data.durationMinutes is int && data.durationMinutes > 0 && data.durationMinutes <= 240
-        && data.serviceDurationMinutes is int && data.serviceDurationMinutes > 0 && data.serviceDurationMinutes <= 240
-        && data.addOnDurationMinutes is int && data.addOnDurationMinutes >= 0 && data.addOnDurationMinutes <= 240
+        && data.durationMinutes is int && data.durationMinutes > 0
+        && data.serviceDurationMinutes is int && data.serviceDurationMinutes > 0
+        && data.addOnDurationMinutes is int && data.addOnDurationMinutes >= 0
         && data.designCategory is string
         && data.designWorkTitle is string
         && (!data.keys().hasAny(['selectedAddOns']) || data.selectedAddOns is list)
@@ -121,12 +157,13 @@ service cloud.firestore {
           'lastStartHour', 'lastUserId', 'updatedAt'
         ])
         && data.keys().hasOnly([
-          'staffId', 'date', 'startHours', 'lastAction', 'lastBookingId',
+          'staffId', 'date', 'startHours', 'endMinutesByStart', 'lastAction', 'lastBookingId',
           'lastStartHour', 'lastUserId', 'updatedAt'
         ])
         && data.staffId == 'primary'
         && data.date is timestamp
         && data.startHours is list
+        && (!data.keys().hasAny(['endMinutesByStart']) || data.endMinutesByStart is map)
         && data.lastAction in ['book', 'cancel']
         && data.lastBookingId is string
         && data.lastStartHour is int
@@ -138,6 +175,49 @@ service cloud.firestore {
       return !resource.data.startHours.hasAny([
         hour - 3, hour - 2, hour - 1, hour + 1, hour + 2, hour + 3
       ]);
+    }
+
+    function validBookingEnd(data, previousEnds) {
+      let key = string(data.lastStartHour);
+      let booking = getAfter(bookingPath(data.lastBookingId)).data;
+      return data.endMinutesByStart is map
+        && data.endMinutesByStart[key] == data.lastStartHour * 60 + booking.durationMinutes
+        && data.endMinutesByStart.diff(previousEnds).affectedKeys().hasOnly([key]);
+    }
+
+    function outsideExistingBooking(hour, start, end, ends) {
+      return !resource.data.startHours.hasAny([hour])
+        || end <= hour * 60 || start >= ends.get(string(hour), (hour + 4) * 60);
+    }
+
+    function noBookingOverlap(data) {
+      let start = data.lastStartHour * 60;
+      let end = start + getAfter(bookingPath(data.lastBookingId)).data.durationMinutes;
+      let ends = resource.data.get('endMinutesByStart', {});
+      return outsideExistingBooking(0, start, end, ends)
+        && outsideExistingBooking(1, start, end, ends)
+        && outsideExistingBooking(2, start, end, ends)
+        && outsideExistingBooking(3, start, end, ends)
+        && outsideExistingBooking(4, start, end, ends)
+        && outsideExistingBooking(5, start, end, ends)
+        && outsideExistingBooking(6, start, end, ends)
+        && outsideExistingBooking(7, start, end, ends)
+        && outsideExistingBooking(8, start, end, ends)
+        && outsideExistingBooking(9, start, end, ends)
+        && outsideExistingBooking(10, start, end, ends)
+        && outsideExistingBooking(11, start, end, ends)
+        && outsideExistingBooking(12, start, end, ends)
+        && outsideExistingBooking(13, start, end, ends)
+        && outsideExistingBooking(14, start, end, ends)
+        && outsideExistingBooking(15, start, end, ends)
+        && outsideExistingBooking(16, start, end, ends)
+        && outsideExistingBooking(17, start, end, ends)
+        && outsideExistingBooking(18, start, end, ends)
+        && outsideExistingBooking(19, start, end, ends)
+        && outsideExistingBooking(20, start, end, ends)
+        && outsideExistingBooking(21, start, end, ends)
+        && outsideExistingBooking(22, start, end, ends)
+        && outsideExistingBooking(23, start, end, ends);
     }
 
     function bookingMatchesScheduleAfter(bookingId, data) {
@@ -160,6 +240,7 @@ service cloud.firestore {
         && data.startHours.size() == 1
         && data.startHours.size() <= dailyBookingCapacity(data.date)
         && data.startHours.hasAny([data.lastStartHour])
+        && validBookingEnd(data, {})
         && pairedScheduleBooking(data.lastBookingId, data.staffId, data.date, data.lastStartHour, request.auth.uid, 'book');
     }
 
@@ -176,9 +257,11 @@ service cloud.firestore {
         && request.resource.data.startHours.hasAll(resource.data.startHours)
         && !resource.data.startHours.hasAny([hour])
         && noExistingNearbyStart(hour)
+        && validBookingEnd(data, resource.data.get('endMinutesByStart', {}))
+        && noBookingOverlap(data)
         && pairedScheduleBooking(data.lastBookingId, data.staffId, data.date, hour, request.auth.uid, 'book')
         && request.resource.data.diff(resource.data).affectedKeys().hasOnly([
-          'startHours', 'lastAction', 'lastBookingId', 'lastStartHour', 'lastUserId', 'updatedAt'
+          'startHours', 'endMinutesByStart', 'lastAction', 'lastBookingId', 'lastStartHour', 'lastUserId', 'updatedAt'
         ]);
     }
 
@@ -193,7 +276,7 @@ service cloud.firestore {
         && request.resource.data.startHours.size() == resource.data.startHours.size() - 1
         && !request.resource.data.startHours.hasAny([hour])
         && request.resource.data.diff(resource.data).affectedKeys().hasOnly([
-          'startHours', 'lastAction', 'lastBookingId', 'lastStartHour', 'lastUserId', 'updatedAt'
+          'startHours', 'endMinutesByStart', 'lastAction', 'lastBookingId', 'lastStartHour', 'lastUserId', 'updatedAt'
         ])
         && pairedScheduleBooking(data.lastBookingId, data.staffId, data.date, hour, data.lastUserId, 'cancel');
     }
@@ -252,6 +335,27 @@ service cloud.firestore {
         && request.resource.data.capacity >= 1
         && request.resource.data.capacity <= 20
         && request.resource.data.updatedAt is timestamp;
+      allow delete: if isAdmin();
+    }
+
+    match /bookingClosures/{closureId} {
+      allow read: if true;
+      allow create, update: if isAdmin()
+        && request.resource.data.keys().hasOnly(['date', 'ranges', 'updatedAt'])
+        && request.resource.data.keys().hasAll(['date', 'ranges', 'updatedAt'])
+        && request.resource.data.date is string
+        && request.resource.data.date.matches('^[0-9]{4}-[0-9]{2}-[0-9]{2}$')
+        && request.resource.data.updatedAt is timestamp
+        && request.resource.data.ranges is list
+        && request.resource.data.ranges.size() >= 1 && request.resource.data.ranges.size() <= 8
+        && validClosureRange(request.resource.data.ranges, 0)
+        && validClosureRange(request.resource.data.ranges, 1)
+        && validClosureRange(request.resource.data.ranges, 2)
+        && validClosureRange(request.resource.data.ranges, 3)
+        && validClosureRange(request.resource.data.ranges, 4)
+        && validClosureRange(request.resource.data.ranges, 5)
+        && validClosureRange(request.resource.data.ranges, 6)
+        && validClosureRange(request.resource.data.ranges, 7);
       allow delete: if isAdmin();
     }
 

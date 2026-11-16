@@ -12,6 +12,7 @@ import {
   where
 } from 'firebase/firestore'
 import { auth, db, firebaseConfigured } from './firebase'
+import { overlapsClosure } from '../utils/bookingClosures'
 
 export const DEFAULT_STAFF_ID = 'primary'
 export const OPEN_HOUR = 10
@@ -40,10 +41,18 @@ export function getHourlyStartOptions (openHour = OPEN_HOUR, closeHour = CLOSE_H
   return Array.from({ length: Math.max(0, closeHour - openHour) }, (_, index) => openHour + index)
 }
 
-export function getAvailableStartHours (date, service, existingHours = [], settings = DEFAULT_BOOKING_SETTINGS, now = new Date()) {
+export function hasBookingTimeConflict (hour, duration, existingHours, endMinutesByStart = {}, minGap = MIN_START_GAP_HOURS) {
+  return existingHours.some(value => {
+    const existingHour = typeof value === 'number' ? value : value.startHour
+    const existingEnd = Number(endMinutesByStart[existingHour]) || (existingHour + MIN_START_GAP_HOURS) * 60
+    return Math.abs(existingHour - hour) < minGap || (hour * 60 < existingEnd && hour * 60 + duration > existingHour * 60)
+  })
+}
+
+export function getAvailableStartHours (date, service, existingHours = [], settings = DEFAULT_BOOKING_SETTINGS, now = new Date(), closures = [], endMinutesByStart = {}) {
   if (!date || !service) return []
   const duration = Number(service.durationMinutes)
-  if (!Number.isInteger(duration) || duration < 1) return []
+  if (!Number.isSafeInteger(duration) || duration < 1) return []
   const openingHour = Number(settings.openHour)
   const closingHour = Number(settings.closeHour)
   const minGap = Number(settings.minStartGapHours) || MIN_START_GAP_HOURS
@@ -51,8 +60,8 @@ export function getAvailableStartHours (date, service, existingHours = [], setti
   return getHourlyStartOptions(openingHour, closingHour).filter((hour) => {
     const start = new Date(`${date}T${String(hour).padStart(2, '0')}:00:00+08:00`)
     const end = new Date(start.getTime() + duration * 60000)
-    const gapConflict = existingHours.some(existingHour => Math.abs(existingHour - hour) < minGap)
-    return start > now && end <= closingTime && !gapConflict
+    const gapConflict = hasBookingTimeConflict(hour, duration, existingHours, endMinutesByStart, minGap)
+    return start > now && end <= closingTime && !gapConflict && !overlapsClosure(hour * 60, hour * 60 + duration, closures)
   })
 }
 
@@ -84,12 +93,15 @@ function bookingCapacityRef (date) {
 
 export async function getAvailability (date, staffId = DEFAULT_STAFF_ID) {
   if (!firebaseConfigured) throw new Error('Firebase 尚未設定，暫時無法載入即時可預約時段。')
-  const [scheduleDay, blockedDate, capacityOverride] = await Promise.all([
+  const [scheduleDay, blockedDate, capacityOverride, closure] = await Promise.all([
     getDoc(scheduleDayRef(staffId, date)),
     getDoc(doc(db, 'blockedDates', blockedDateDocumentId(date))),
-    getDoc(bookingCapacityRef(date))
+    getDoc(bookingCapacityRef(date)),
+    getDoc(doc(db, 'bookingClosures', blockedDateDocumentId(date)))
   ])
   return {
+    closures: closure.exists() ? closure.data().ranges : [],
+    endMinutesByStart: scheduleDay.exists() ? (scheduleDay.data().endMinutesByStart || {}) : {},
     locks: scheduleDay.exists() ? (scheduleDay.data().startHours || []).map(startHour => ({ startHour })) : [],
     blocked: blockedDate.exists() && blockedDate.data().active === true,
     capacity: capacityOverride.exists() ? Number(capacityOverride.data().capacity) : DEFAULT_DAILY_BOOKING_CAPACITY
@@ -119,16 +131,18 @@ export async function getMonthlyAvailability (year, month, staffId = DEFAULT_STA
     where('date', '>=', startDate),
     where('date', '<', nextMonthDate)
   )
-  const [scheduleResult, blockedResult, capacityResult] = await Promise.all([
+  const closureQuery = query(collection(db, 'bookingClosures'), where('date', '>=', startDate), where('date', '<', nextMonthDate))
+  const [scheduleResult, blockedResult, capacityResult, closureResult] = await Promise.all([
     getDocs(scheduleQuery),
     getDocs(blockedQuery),
-    getDocs(capacityQuery)
+    getDocs(capacityQuery),
+    getDocs(closureQuery)
   ])
   const availability = {}
   scheduleResult.docs.forEach((item) => {
     const data = item.data()
     const date = getTaipeiDateString(data.date.toDate())
-    availability[date] = { locks: data.startHours || [], blocked: false }
+    availability[date] = { locks: data.startHours || [], endMinutesByStart: data.endMinutesByStart || {}, blocked: false }
   })
   blockedResult.docs.forEach((item) => {
     const data = item.data()
@@ -145,6 +159,10 @@ export async function getMonthlyAvailability (year, month, staffId = DEFAULT_STA
       ...(availability[data.date] || { locks: [], blocked: false }),
       capacity: Number(data.capacity)
     }
+  })
+  closureResult.docs.forEach(item => {
+    const data = item.data()
+    availability[data.date] = { ...(availability[data.date] || { locks: [], blocked: false }), closures: data.ranges }
   })
   return availability
 }
@@ -180,14 +198,16 @@ export async function createBooking ({ user, service, date, startHour, designCat
   const settingsRef = doc(db, 'businessSettings', 'booking')
   const blockedDateRef = doc(db, 'blockedDates', blockedDateDocumentId(date))
   const capacityRef = bookingCapacityRef(date)
+  const closureRef = doc(db, 'bookingClosures', blockedDateDocumentId(date))
 
   await runTransaction(db, async (transaction) => {
-    const [currentService, scheduleDay, currentSettingsSnapshot, blockedDateSnapshot, capacitySnapshot] = await Promise.all([
+    const [currentService, scheduleDay, currentSettingsSnapshot, blockedDateSnapshot, capacitySnapshot, closureSnapshot] = await Promise.all([
       transaction.get(serviceRef),
       transaction.get(dayRef),
       transaction.get(settingsRef),
       transaction.get(blockedDateRef),
-      transaction.get(capacityRef)
+      transaction.get(capacityRef),
+      transaction.get(closureRef)
     ])
 
     if (blockedDateSnapshot.exists() && blockedDateSnapshot.data().active === true) {
@@ -221,7 +241,7 @@ export async function createBooking ({ user, service, date, startHour, designCat
       if (!Number.isInteger(quantity) || quantity < 1 || quantity > maxQuantity || maxQuantity < 1 || maxQuantity > 10) {
         throw new Error(`「${addon.name}」數量上限為 ${maxQuantity} 個，請重新選擇。`)
       }
-      if (!Number.isInteger(addonDuration) || addonDuration < 0 || addonDuration > 240) {
+      if (!Number.isSafeInteger(addonDuration) || addonDuration < 0) {
         throw new Error('加購施作時間設定無效，請聯絡店家。')
       }
       addOnDurationMinutes += addonDuration * quantity
@@ -241,10 +261,18 @@ export async function createBooking ({ user, service, date, startHour, designCat
     }
     const serviceDurationMinutes = Number(current.durationMinutes)
     const currentDuration = serviceDurationMinutes + addOnDurationMinutes
+    if (overlapsClosure(startHour * 60, startHour * 60 + currentDuration, closureSnapshot.exists() ? closureSnapshot.data().ranges : [])) {
+      throw new Error('所選服務時間與店家關閉時段重疊，請重新選擇。')
+    }
     const currentCloseAt = new Date(`${date}T${String(currentSettings.closeHour).padStart(2, '0')}:00:00+08:00`)
     const currentEnd = new Date(startAt.getTime() + currentDuration * 60000)
-    if (!Number.isInteger(serviceDurationMinutes) || serviceDurationMinutes < 1 || !Number.isInteger(currentDuration) || currentDuration > 240 || currentEnd > currentCloseAt || startAt <= new Date()) {
+    if (!Number.isSafeInteger(serviceDurationMinutes) || serviceDurationMinutes < 1 || !Number.isSafeInteger(currentDuration) || !Number.isFinite(currentEnd.getTime()) || currentEnd > currentCloseAt || startAt <= new Date()) {
       throw new Error('服務資料有更新，所選時間已無法預約，請重新選擇。')
+    }
+
+    const endMinutesByStart = scheduleDay.exists() ? (scheduleDay.data().endMinutesByStart || {}) : {}
+    if (hasBookingTimeConflict(startHour, currentDuration, currentHours, endMinutesByStart)) {
+      throw new Error('所選服務時間與既有預約重疊，請重新選擇。')
     }
 
     const nextHours = [...currentHours, startHour].sort((a, b) => a - b)
@@ -252,6 +280,7 @@ export async function createBooking ({ user, service, date, startHour, designCat
       staffId: DEFAULT_STAFF_ID,
       date: dateStart,
       startHours: nextHours,
+      endMinutesByStart: { ...endMinutesByStart, [startHour]: startHour * 60 + currentDuration },
       lastAction: 'book',
       lastBookingId: bookingRef.id,
       lastStartHour: startHour,
@@ -331,8 +360,11 @@ export async function setBookingStatus (booking, status) {
     transaction.update(bookingRef, changes)
     if (status === 'cancelled') {
       const currentHours = scheduleDay.data().startHours || []
+      const endMinutesByStart = { ...(scheduleDay.data().endMinutesByStart || {}) }
+      delete endMinutesByStart[data.startHour]
       transaction.update(dayRef, {
         startHours: currentHours.filter(hour => hour !== data.startHour),
+        endMinutesByStart,
         lastAction: 'cancel',
         lastBookingId: bookingRef.id,
         lastStartHour: data.startHour,

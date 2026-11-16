@@ -122,6 +122,7 @@ export async function signInWithGoogle () {
 }
 
 function loginErrorMessage (error) {
+  if (error.code === 'auth/network-request-failed') return new Error('Google 登入連線失敗（auth/network-request-failed），請確認網路連線後重試。')
   if (error.code === 'auth/popup-closed-by-user') return new Error('Google 登入視窗已關閉，尚未完成登入。')
   if (error.code === 'auth/popup-blocked') return new Error('瀏覽器封鎖了 Google 登入視窗，請允許彈出視窗後重試。')
   if (error.code === 'auth/cancelled-popup-request') return new Error('Google 登入已取消，請稍後再試。')
@@ -133,7 +134,8 @@ function loginErrorMessage (error) {
   if (error.code === 'auth/configuration-not-found' || error.code === 'auth/project-not-found') {
     return new Error('Firebase Authentication 專案設定尚未完成，請在 nanu-nail 專案確認已啟用 Authentication。')
   }
-  return new Error('Google 登入失敗，請稍後重試。')
+  const code = error && typeof error.code === 'string' ? `（${error.code}）` : ''
+  return new Error(`Google 登入失敗${code}，請稍後重試。`)
 }
 
 export async function signOutCurrentUser () {

@@ -349,7 +349,7 @@ export default {
       const availability = this.availabilityByDate[date] || { locks: [], blocked: false }
       if (availability.blocked) return 'holiday'
       if (this.availableHoursForDate(date).length > 0) return 'available'
-      const possibleHours = getAvailableStartHours(date, this.selectedSchedulingService, [], this.settings)
+      const possibleHours = getAvailableStartHours(date, this.selectedSchedulingService, [], this.settings, new Date(), availability.closures || [])
       const capacity = Number(availability.capacity) || DEFAULT_DAILY_BOOKING_CAPACITY
       return possibleHours.length > 0 && (availability.locks.length >= capacity || availability.locks.length > 0) ? 'full' : 'unavailable'
     },
@@ -367,7 +367,7 @@ export default {
       if (availability.blocked) return []
       const capacity = Number(availability.capacity) || DEFAULT_DAILY_BOOKING_CAPACITY
       if ((availability.locks || []).length >= capacity) return []
-      return getAvailableStartHours(date, this.selectedSchedulingService, availability.locks, this.settings)
+      return getAvailableStartHours(date, this.selectedSchedulingService, availability.locks, this.settings, new Date(), availability.closures || [], availability.endMinutesByStart || {})
     },
     async loadCalendarAvailability () {
       const year = this.calendarYear
@@ -425,6 +425,7 @@ export default {
     },
     continueToConfirm () {
       this.errorMessage = ''
+      if (!this.canContinue) return
       this.step = 'confirm'
     },
     async submitBooking (user) {
