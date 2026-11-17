@@ -76,8 +76,8 @@
           <div v-else class="admin-list">
             <article v-for="booking in confirmedBookings" :key="booking.id" class="admin-booking">
               <div class="admin-booking-main"><div><strong>{{ formatDate(booking.date) }}・{{ formatHour(booking.startHour) }}</strong><span>姓名：{{ booking.customerName || '未提供' }}</span><span>電話：{{ booking.customerPhone || '舊訂單未留存' }}</span><span>信箱：{{ booking.customerEmail || '未提供' }}</span><span>訂單編號：{{ booking.id }}</span></div><div><h3>{{ booking.serviceName }} <small v-if="bookingDesignLabel(booking)">{{ bookingDesignLabel(booking) }}</small></h3><span><small v-if="booking.selectedAddOns && booking.selectedAddOns.length">加購：{{ getBookingAddOnSummary(booking) }}</small><span>{{ bookingWorkDuration(booking) }}</span></span></div><div class="admin-booking-amount"><strong :class="{ 'amount-unpriced': incomeAmount(booking) === null }">{{ incomeAmount(booking) === null ? '待填金額' : money(incomeAmount(booking)) }}</strong><span :class="`status status--${booking.status}`">{{ statusLabel(booking.status) }}</span></div></div>
-              <div class="admin-booking-actions">
-                <button type="button" :disabled="savingBookingName || savingBookingPrice" @click="startEditingBookingName(booking)">編輯顧客姓名</button>
+              <div class="admin-booking-actions confirmed-booking-actions">
+                <button type="button" :disabled="savingBookingName || savingBookingPrice" @click="startEditingBookingName(booking)">編輯姓名</button>
                 <button type="button" :disabled="savingBookingName || savingBookingPrice" @click="startEditingBookingPrice(booking)">編輯金額</button>
                 <button type="button" :disabled="savingBookingName || savingBookingPrice" @click="changeBookingStatus(booking, 'completed')">標記完成</button>
                 <button type="button" class="danger-action" :disabled="savingBookingName || savingBookingPrice" @click="changeBookingStatus(booking, 'cancelled')">管理員取消</button>
@@ -930,4 +930,5 @@ export default {
 .admin-booking-main>.admin-booking-amount{justify-items:end;text-align:right;gap:7px}.admin-booking-amount .amount-unpriced{color:#a46e4b}.admin-booking-amount .status{display:inline-block}
 @media(max-width:700px){.admin-booking-main>.admin-booking-amount{grid-column:2;grid-row:1}}
 .confirmed-calendar-event.confirmed-calendar-closure{background:#fff9e9}
+@media(max-width:700px){.confirmed-booking-actions button{font-size:12px;white-space:nowrap}}
 </style>
