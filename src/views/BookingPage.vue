@@ -467,10 +467,12 @@ export default {
         this.step = 'success'
         this.generateLineQrCode()
       } catch (error) {
-        const isConflict = error.code === 'aborted' || error.code === 'permission-denied'
-        const message = isConflict
-          ? '這個時段可能剛被預約或預約條件已更新，請重新載入時段後再選擇。'
-          : (error.message || '預約送出失敗，請重新確認資料後再試。')
+        const isConflict = error.code === 'aborted'
+        const message = error.code === 'permission-denied'
+          ? '預約未能儲存，請聯絡店家確認預約系統設定。'
+          : isConflict
+            ? '這個時段可能剛被預約，請重新載入時段後再選擇。'
+            : (error.message || '預約送出失敗，請重新確認資料後再試。')
         this.errorMessage = message
         if (isConflict || message.includes('時段剛被預約走')) {
           this.step = 'details'

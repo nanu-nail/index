@@ -185,39 +185,31 @@ service cloud.firestore {
         && data.endMinutesByStart.diff(previousEnds).affectedKeys().hasOnly([key]);
     }
 
-    function outsideExistingBooking(hour, start, end, ends) {
-      return !resource.data.startHours.hasAny([hour])
-        || end <= hour * 60 || start >= ends.get(string(hour), (hour + 4) * 60);
+    function outsideExistingBooking(hours, index, start, end, ends) {
+      let hour = hours[index];
+      return end <= hour * 60 || start >= ends.get(string(hour), (hour + 4) * 60);
+    }
+
+    function outsideBookingGroup(hours, offset, start, end, ends) {
+      // Skip unused slots to stay within the rules evaluation limit.
+      return (hours.size() <= offset || outsideExistingBooking(hours, offset, start, end, ends))
+        && (hours.size() <= offset + 1 || outsideExistingBooking(hours, offset + 1, start, end, ends))
+        && (hours.size() <= offset + 2 || outsideExistingBooking(hours, offset + 2, start, end, ends))
+        && (hours.size() <= offset + 3 || outsideExistingBooking(hours, offset + 3, start, end, ends))
+        && (hours.size() <= offset + 4 || outsideExistingBooking(hours, offset + 4, start, end, ends))
+        && (hours.size() <= offset + 5 || outsideExistingBooking(hours, offset + 5, start, end, ends));
     }
 
     function noBookingOverlap(data) {
       let start = data.lastStartHour * 60;
       let end = start + getAfter(bookingPath(data.lastBookingId)).data.durationMinutes;
       let ends = resource.data.get('endMinutesByStart', {});
-      return outsideExistingBooking(0, start, end, ends)
-        && outsideExistingBooking(1, start, end, ends)
-        && outsideExistingBooking(2, start, end, ends)
-        && outsideExistingBooking(3, start, end, ends)
-        && outsideExistingBooking(4, start, end, ends)
-        && outsideExistingBooking(5, start, end, ends)
-        && outsideExistingBooking(6, start, end, ends)
-        && outsideExistingBooking(7, start, end, ends)
-        && outsideExistingBooking(8, start, end, ends)
-        && outsideExistingBooking(9, start, end, ends)
-        && outsideExistingBooking(10, start, end, ends)
-        && outsideExistingBooking(11, start, end, ends)
-        && outsideExistingBooking(12, start, end, ends)
-        && outsideExistingBooking(13, start, end, ends)
-        && outsideExistingBooking(14, start, end, ends)
-        && outsideExistingBooking(15, start, end, ends)
-        && outsideExistingBooking(16, start, end, ends)
-        && outsideExistingBooking(17, start, end, ends)
-        && outsideExistingBooking(18, start, end, ends)
-        && outsideExistingBooking(19, start, end, ends)
-        && outsideExistingBooking(20, start, end, ends)
-        && outsideExistingBooking(21, start, end, ends)
-        && outsideExistingBooking(22, start, end, ends)
-        && outsideExistingBooking(23, start, end, ends);
+      let hours = resource.data.startHours;
+      return hours.size() <= 24
+        && outsideBookingGroup(hours, 0, start, end, ends)
+        && (hours.size() <= 6 || outsideBookingGroup(hours, 6, start, end, ends))
+        && (hours.size() <= 12 || outsideBookingGroup(hours, 12, start, end, ends))
+        && (hours.size() <= 18 || outsideBookingGroup(hours, 18, start, end, ends));
     }
 
     function bookingMatchesScheduleAfter(bookingId, data) {

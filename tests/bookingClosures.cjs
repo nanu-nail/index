@@ -60,6 +60,9 @@ assert.deepEqual(available(120, [range(0, 1440)]), [])
 assert.deepEqual(available(241), [10, 11, 12, 13, 14], 'durations above four hours are allowed')
 assert.deepEqual(available(540), [10], 'full business day is allowed')
 assert.deepEqual(available(541), [], 'must still finish within business hours')
+const lateSettings = { ...settings, closeHour: 23 }
+assert.ok(plain(bookings.getAvailableStartHours(date, { durationMinutes: 240 }, [], lateSettings, now)).includes(19), '19:00 booking ending exactly at 23:00 is available')
+assert.ok(!plain(bookings.getAvailableStartHours(date, { durationMinutes: 241 }, [], lateSettings, now)).includes(19), '19:00 booking ending after 23:00 is unavailable')
 assert.equal(bookings.hasBookingTimeConflict(14, 120, [10], { 10: 900 }), true, 'long earlier booking still occupies 14:00')
 assert.equal(bookings.hasBookingTimeConflict(15, 120, [10], { 10: 900 }), false, 'starting exactly at previous end is allowed')
 assert.equal(bookings.hasBookingTimeConflict(10, 270, [14], { 14: 1080 }), true, 'long new booking cannot overlap a later one')
@@ -120,6 +123,19 @@ async function checkTransactions () {
   assert.equal(writes.length, 0, 'new closure is rechecked despite stale client options')
 
   delete documents[`bookingClosures/${closureId}`]
+  documents['businessSettings/booking'] = lateSettings
+  documents['services/test'].durationMinutes = 210
+  documents['services/test'].addOns = [{ id: 'removal', name: '本店卸甲', price: 0, durationMinutes: 30, maxQuantity: 1 }]
+  await currentBookings.createBooking({ ...request, startHour: 19, settings: lateSettings, selectedAddOnQuantities: { removal: 1 } })
+  const closingBooking = writes.find(write => write.ref === 'new-booking').value
+  assert.equal(closingBooking.durationMinutes, 240, 'three-hour service plus buffer and removal totals four hours')
+  assert.equal(closingBooking.endAt.getTime(), new Date(`${date}T23:00:00+08:00`).getTime(), 'booking ending exactly at closing succeeds')
+  writes = []
+  documents['services/test'].durationMinutes = 211
+  await assert.rejects(currentBookings.createBooking({ ...request, startHour: 19, settings: lateSettings, selectedAddOnQuantities: { removal: 1 } }))
+  assert.equal(writes.length, 0, 'booking one minute beyond closing writes nothing')
+  documents['businessSettings/booking'] = settings
+  documents['services/test'].durationMinutes = 120
   documents['services/test'].addOns = [
     { id: 'a', name: 'A', price: 10, durationMinutes: 30, maxQuantity: 3 },
     { id: 'b', name: 'B', price: 20, durationMinutes: 60, maxQuantity: 2 }
