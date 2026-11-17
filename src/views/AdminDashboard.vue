@@ -557,6 +557,11 @@ export default {
       }
     },
     async changeBookingStatus (booking, status) {
+      const actions = { confirmed: '確認預約', cancelled: '管理員取消', completed: '標記完成' }
+      const action = actions[status]
+      if (!action) return
+      const warning = status === 'cancelled' ? '\n取消後將釋出此預約時段，請確認沒有選錯訂單。' : ''
+      if (!this.confirmBookingChange(booking, `是否確認將此預約「${action}」？${warning}`)) return
       this.actionMessage = ''
       try {
         await setBookingStatus(booking, status)
@@ -567,15 +572,27 @@ export default {
       }
     },
     startEditingBookingPrice (booking) {
+      if (!this.confirmBookingChange(booking, '是否確認編輯此預約的金額？')) return
       this.editingBookingPriceId = booking.id
       this.bookingPriceDraft = getBookingTotalPrice(booking)
     },
+    confirmBookingChange (booking, message) {
+      const details = [
+        `顧客：${booking.customerName || booking.customerEmail || '未提供'}`,
+        `預約：${this.formatDate(booking.date)} ${this.formatHour(booking.startHour)}`,
+        `服務：${booking.serviceName || '未提供'}`,
+        `訂單編號：${booking.id}`
+      ].join('\n')
+      return window.confirm(`${message}\n\n${details}`)
+    },
     async saveBookingPrice (booking) {
+      if (this.savingBookingPrice) return
       const amount = Number(this.bookingPriceDraft)
       if (!Number.isInteger(amount) || amount < 0) {
         this.flash('金額需為 0 或正整數。', true)
         return
       }
+      if (!this.confirmBookingChange(booking, `是否確認更改預約金額？\n原金額：NT$ ${getBookingTotalPrice(booking)}\n新金額：NT$ ${amount}`)) return
       this.savingBookingPrice = true
       this.actionMessage = ''
       try {
