@@ -37,7 +37,7 @@
           <div v-if="pendingBookings.length === 0" class="empty-admin">目前沒有待確認預約。</div>
           <div v-else class="admin-list">
             <article v-for="booking in pendingBookings" :key="booking.id" class="admin-booking">
-              <div class="admin-booking-main"><div><strong>{{ formatDate(booking.date) }}・{{ formatHour(booking.startHour) }}</strong><span>姓名：{{ booking.customerName || '未提供' }}</span><span>電話：{{ booking.customerPhone || '舊訂單未留存' }}</span><span>信箱：{{ booking.customerEmail || '未提供' }}</span><span>訂單編號：{{ booking.id }}</span></div><div><h3>{{ booking.serviceName }} <small v-if="bookingDesignLabel(booking)">{{ bookingDesignLabel(booking) }}</small></h3><span><small v-if="booking.selectedAddOns && booking.selectedAddOns.length">加購：{{ getBookingAddOnSummary(booking) }}</small><span>{{ bookingPriceDisplay(booking) }}・{{ bookingWorkDuration(booking) }}</span></span></div><span :class="`status status--${booking.status}`">{{ statusLabel(booking.status) }}</span></div>
+              <div class="admin-booking-main"><div><strong>{{ formatDate(booking.date) }}・{{ formatHour(booking.startHour) }}</strong><span>姓名：{{ booking.customerName || '未提供' }}</span><span>電話：{{ booking.customerPhone || '舊訂單未留存' }}</span><span>信箱：{{ booking.customerEmail || '未提供' }}</span><span>訂單編號：{{ booking.id }}</span></div><div><h3>{{ booking.serviceName }} <small v-if="bookingDesignLabel(booking)">{{ bookingDesignLabel(booking) }}</small></h3><span><small v-if="booking.selectedAddOns && booking.selectedAddOns.length">加購：{{ getBookingAddOnSummary(booking) }}</small><span>{{ bookingPriceDisplay(booking) }}・{{ bookingWorkDuration(booking) }}</span></span></div><span :class="`status status--${booking.status}`">{{ bookingStatusLabel(booking) }}</span></div>
               <div class="admin-booking-meta">下單時間：{{ formatBookingCreatedAt(booking.createdAt) }}</div>
               <div class="admin-booking-actions">
                 <button type="button" @click="startEditingBookingPrice(booking)">編輯金額</button>
@@ -68,8 +68,23 @@
           <div v-if="confirmedBookings.length === 0" class="empty-admin">目前沒有已確認預約。</div>
           <div v-else class="admin-list">
             <article v-for="booking in confirmedBookings" :key="booking.id" class="admin-booking">
-              <div class="admin-booking-main"><div><strong>{{ formatDate(booking.date) }}・{{ formatHour(booking.startHour) }}</strong><span>姓名：{{ booking.customerName || '未提供' }}</span><span>電話：{{ booking.customerPhone || '舊訂單未留存' }}</span><span>信箱：{{ booking.customerEmail || '未提供' }}</span><span>訂單編號：{{ booking.id }}</span></div><div><h3>{{ booking.serviceName }} <small v-if="bookingDesignLabel(booking)">{{ bookingDesignLabel(booking) }}</small></h3><span><small v-if="booking.selectedAddOns && booking.selectedAddOns.length">加購：{{ getBookingAddOnSummary(booking) }}</small><span>{{ bookingPriceDisplay(booking) }}・{{ bookingWorkDuration(booking) }}</span></span></div><span :class="`status status--${booking.status}`">{{ statusLabel(booking.status) }}</span></div>
-              <div class="admin-booking-actions"><button type="button" @click="changeBookingStatus(booking, 'completed')">標記完成</button><button type="button" class="danger-action" @click="changeBookingStatus(booking, 'cancelled')">管理員取消</button></div>
+              <div class="admin-booking-main"><div><strong>{{ formatDate(booking.date) }}・{{ formatHour(booking.startHour) }}</strong><span>姓名：{{ booking.customerName || '未提供' }}</span><span>電話：{{ booking.customerPhone || '舊訂單未留存' }}</span><span>信箱：{{ booking.customerEmail || '未提供' }}</span><span>訂單編號：{{ booking.id }}</span></div><div><h3>{{ booking.serviceName }} <small v-if="bookingDesignLabel(booking)">{{ bookingDesignLabel(booking) }}</small></h3><span><small v-if="booking.selectedAddOns && booking.selectedAddOns.length">加購：{{ getBookingAddOnSummary(booking) }}</small><span>{{ bookingWorkDuration(booking) }}</span></span></div><div class="admin-booking-amount"><strong :class="{ 'amount-unpriced': incomeAmount(booking) === null }">{{ incomeAmount(booking) === null ? '待填金額' : money(incomeAmount(booking)) }}</strong><span :class="`status status--${booking.status}`">{{ statusLabel(booking.status) }}</span></div></div>
+              <div class="admin-booking-actions">
+                <button type="button" :disabled="savingBookingName || savingBookingPrice" @click="startEditingBookingName(booking)">編輯顧客姓名</button>
+                <button type="button" :disabled="savingBookingName || savingBookingPrice" @click="startEditingBookingPrice(booking)">編輯金額</button>
+                <button type="button" :disabled="savingBookingName || savingBookingPrice" @click="changeBookingStatus(booking, 'completed')">標記完成</button>
+                <button type="button" class="danger-action" :disabled="savingBookingName || savingBookingPrice" @click="changeBookingStatus(booking, 'cancelled')">管理員取消</button>
+              </div>
+              <form v-if="editingBookingNameId === booking.id" class="booking-price-editor" @submit.prevent="saveBookingName(booking)">
+                <label>顧客姓名<input v-model.trim="bookingNameDraft" type="text" maxlength="60" required :disabled="savingBookingName"></label>
+                <button type="submit" :disabled="savingBookingName">{{ savingBookingName ? '儲存中…' : '儲存姓名' }}</button>
+                <button type="button" :disabled="savingBookingName" @click="editingBookingNameId = ''">取消</button>
+              </form>
+              <form v-if="editingBookingPriceId === booking.id" class="booking-price-editor" @submit.prevent="saveBookingPrice(booking)">
+                <label>預約金額（NT$）<input v-model.number="bookingPriceDraft" type="number" min="0" step="1" required :disabled="savingBookingPrice"></label>
+                <button type="submit" :disabled="savingBookingPrice">{{ savingBookingPrice ? '儲存中…' : '儲存金額' }}</button>
+                <button type="button" :disabled="savingBookingPrice" @click="editingBookingPriceId = ''">取消</button>
+              </form>
             </article>
           </div>
         </section>
@@ -226,8 +241,9 @@ import AuthControl from '../components/AuthControl.vue'
 import PageNotice from '../components/PageNotice.vue'
 import { authState } from '../services/auth'
 import { firebaseConfigured } from '../services/firebase'
-import { getAllBookings, setBookingPrice, setBookingStatus, DEFAULT_BOOKING_SETTINGS, getTaipeiDateString } from '../services/bookings'
+import { getAllBookings, setBookingCustomerName, setBookingPrice, setBookingStatus, DEFAULT_BOOKING_SETTINGS, getTaipeiDateString } from '../services/bookings'
 import getBookingTotalPrice, { getBookingAddOnSummary } from '../utils/getBookingTotalPrice'
+import { getBookingIncomeAmount } from '../utils/bookingIncome'
 import formatDuration from '../utils/formatDuration'
 import { normalizeClosureRanges, overlapsClosure, remainingBusinessRanges, formatMinute } from '../utils/bookingClosures'
 import {
@@ -281,6 +297,9 @@ export default {
       loading: false,
       saving: false,
       savingBookingPrice: false,
+      savingBookingName: false,
+      editingBookingNameId: '',
+      bookingNameDraft: '',
       actionMessageTimeout: null,
       editingBookingPriceId: '',
       bookingPriceDraft: 0,
@@ -572,9 +591,37 @@ export default {
       }
     },
     startEditingBookingPrice (booking) {
+      if (this.savingBookingPrice || this.savingBookingName) return
       if (!this.confirmBookingChange(booking, '是否確認編輯此預約的金額？')) return
+      this.editingBookingNameId = ''
       this.editingBookingPriceId = booking.id
       this.bookingPriceDraft = getBookingTotalPrice(booking)
+    },
+    startEditingBookingName (booking) {
+      if (this.savingBookingName || this.savingBookingPrice) return
+      this.editingBookingPriceId = ''
+      this.editingBookingNameId = booking.id
+      this.bookingNameDraft = booking.customerName || ''
+    },
+    async saveBookingName (booking) {
+      if (this.savingBookingName) return
+      const name = this.bookingNameDraft.trim()
+      if (!name || name.length > 60) {
+        this.flash('顧客姓名需為 1 至 60 個字。', true)
+        return
+      }
+      if (!this.confirmBookingChange(booking, `是否確認更改顧客姓名？\n原姓名：${booking.customerName || '未提供'}\n新姓名：${name}`)) return
+      this.savingBookingName = true
+      try {
+        await setBookingCustomerName(booking, name)
+        this.$set(booking, 'customerName', name)
+        this.editingBookingNameId = ''
+        this.flash('顧客姓名已更新。')
+      } catch (error) {
+        this.flash(error.message || '更新顧客姓名失敗。', true)
+      } finally {
+        this.savingBookingName = false
+      }
     },
     confirmBookingChange (booking, message) {
       const details = [
@@ -612,6 +659,16 @@ export default {
     formatDate (date) {
       const value = date && typeof date.toDate === 'function' ? date.toDate() : date
       return new Intl.DateTimeFormat('zh-TW', { timeZone: 'Asia/Taipei', year: 'numeric', month: '2-digit', day: '2-digit' }).format(value)
+    },
+    incomeAmount: getBookingIncomeAmount,
+    money (amount) {
+      return `NT$ ${Number(amount).toLocaleString('zh-TW')}`
+    },
+    bookingStatusLabel (booking) {
+      const label = this.statusLabel(booking.status)
+      return booking.status === 'confirmed' && getBookingIncomeAmount(booking) === null
+        ? `${label}・待填金額`
+        : label
     },
     statusLabel (status) {
       return { pending: '待確認', confirmed: '已確認', cancelled: '已取消', completed: '已完成' }[status] || '未知狀態'
@@ -852,4 +909,6 @@ export default {
 @media(max-width:600px){.addon-editor-row{grid-template-columns:1fr 1fr}.addon-remove{width:max-content}}
 .booking-price-editor{display:flex;align-items:flex-end;gap:8px;margin-top:10px;padding:12px;background:var(--cream)}.booking-price-editor label{display:grid;gap:6px;color:var(--muted);font-size:12.666px}.booking-price-editor input{width:160px;min-height:36px;padding:8px 10px;border:1px solid var(--line);background:#fff;color:var(--ink);font:14px var(--sans)}.booking-price-editor button{min-height:36px;padding:7px 10px;border:1px solid var(--line);background:#fffdfa;color:var(--ink);font:12.666px var(--sans);cursor:pointer}.booking-price-editor button:disabled{opacity:.5;cursor:wait}@media(max-width:600px){.booking-price-editor{flex-wrap:wrap}.booking-price-editor input{width:100%}}
 .service-editor{scroll-margin-top:24px}
+.admin-booking-main>.admin-booking-amount{justify-items:end;text-align:right;gap:7px}.admin-booking-amount .amount-unpriced{color:#a46e4b}.admin-booking-amount .status{display:inline-block}
+@media(max-width:700px){.admin-booking-main>.admin-booking-amount{grid-column:2;grid-row:1}}
 </style>

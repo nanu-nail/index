@@ -388,11 +388,20 @@ service cloud.firestore {
             || !getAfter(scheduleDayPath(resource.data.staffId, resource.data.date)).data.startHours.hasAny([resource.data.startHour]))
         )
         || (
-          resource.data.status == 'pending'
-          && request.resource.data.status == 'pending'
+          resource.data.status in ['pending', 'confirmed']
+          && request.resource.data.status == resource.data.status
           && request.resource.data.diff(resource.data).affectedKeys().hasOnly(['totalPrice', 'updatedAt'])
           && request.resource.data.totalPrice is number
           && request.resource.data.totalPrice >= 0
+        )
+        || (
+          resource.data.status == 'confirmed'
+          && request.resource.data.status == resource.data.status
+          && request.resource.data.diff(resource.data).affectedKeys().hasOnly(['customerName', 'updatedAt'])
+          && request.resource.data.customerName is string
+          && request.resource.data.customerName.size() > 0
+          && request.resource.data.customerName.size() <= 60
+          && request.resource.data.customerName.matches('.*[^\\s].*')
         )
       );
       allow delete: if false;

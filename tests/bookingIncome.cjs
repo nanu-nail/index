@@ -69,7 +69,7 @@ async function checkQueryAndPage () {
     '../utils/bookingIncome': income
   })
   const records = await service.getBookingsByMonth('2030-12')
-  assert.deepEqual(plain(records.map(record => record.id)), ['later-day', 'afternoon', 'morning'])
+  assert.deepEqual(plain(records.map(record => record.id)), ['morning', 'afternoon', 'later-day'])
   assert.equal(calls[0][0], 'date', 'uses施作 date instead of creation date')
   assert.equal(calls[0][1], '>=')
   assert.equal(calls[0][2].toISOString(), '2030-11-30T16:00:00.000Z')

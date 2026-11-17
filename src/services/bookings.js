@@ -340,10 +340,19 @@ export async function getBookingsByMonth (month) {
     collection(db, 'bookings'),
     where('date', '>=', start),
     where('date', '<', end),
-    orderBy('date', 'desc')
+    orderBy('date', 'asc')
   ))
   return result.docs.map(item => ({ id: item.id, ...item.data() }))
-    .sort((a, b) => b.date.toMillis() - a.date.toMillis() || Number(b.startHour) - Number(a.startHour))
+    .sort((a, b) => a.date.toMillis() - b.date.toMillis() || Number(a.startHour) - Number(b.startHour))
+}
+
+export async function setBookingCustomerName (booking, customerName) {
+  const name = String(customerName || '').trim()
+  if (!name || name.length > 60) throw new Error('顧客姓名需為 1 至 60 個字。')
+  await updateDoc(doc(db, 'bookings', booking.id), {
+    customerName: name,
+    updatedAt: serverTimestamp()
+  })
 }
 
 export async function setBookingPrice (booking, totalPrice) {
