@@ -60,7 +60,14 @@
             <div class="confirmed-calendar-weekdays"><span v-for="weekday in weekdays" :key="weekday">{{ weekday }}</span></div>
             <div class="confirmed-calendar-grid">
               <div v-for="cell in confirmedCalendarCells" :key="cell.key" class="confirmed-calendar-cell" :class="{ 'confirmed-calendar-cell--empty': !cell.date }">
-                <template v-if="cell.date"><strong>{{ cell.day }}</strong><div v-for="booking in cell.bookings" :key="booking.id" class="confirmed-calendar-event"><b>{{ formatHour(booking.startHour) }}</b><span>{{ booking.customerName || booking.customerEmail }}</span><small>{{ booking.serviceName }}</small></div></template>
+                <template v-if="cell.date">
+                  <strong>{{ cell.day }}</strong>
+                  <div v-if="cell.blockedDate" class="confirmed-calendar-event confirmed-calendar-closure"><b>店休</b><span v-if="cell.blockedDate.note">{{ cell.blockedDate.note }}</span></div>
+                  <div v-for="event in cell.events" :key="event.key" class="confirmed-calendar-event" :class="{ 'confirmed-calendar-closure': event.type === 'closure' }">
+                    <template v-if="event.type === 'closure'"><b>暫休</b><span>{{ rangesLabel([event.range]) }}</span></template>
+                    <template v-else><b>{{ formatHour(event.booking.startHour) }}</b><span>{{ event.booking.customerName || event.booking.customerEmail }}</span><small>{{ event.booking.serviceName }}</small></template>
+                  </div>
+                </template>
               </div>
             </div>
           </div>
@@ -387,7 +394,18 @@ export default {
       const cells = Array.from({ length: firstWeekday }, (_, index) => ({ key: `empty-${index}`, date: '' }))
       for (let day = 1; day <= daysInMonth; day += 1) {
         const date = `${this.confirmedCalendarMonth}-${String(day).padStart(2, '0')}`
-        cells.push({ key: date, date, day, bookings: bookingsByDate[date] || [] })
+        const blockedDate = this.blockedDates.find(item => item.date === date && item.active)
+        const closure = this.bookingClosures.find(item => item.date === date)
+        const events = (bookingsByDate[date] || []).map(booking => ({
+          key: `booking-${booking.id}`, type: 'booking', startMinute: Number(booking.startHour) * 60, booking
+        }))
+        if (!blockedDate && closure) {
+          closure.ranges.forEach((range, index) => events.push({
+            key: `closure-${index}`, type: 'closure', startMinute: range.startMinute, range
+          }))
+        }
+        events.sort((a, b) => a.startMinute - b.startMinute || a.key.localeCompare(b.key))
+        cells.push({ key: date, date, day, blockedDate, events })
       }
       while (cells.length % 7 !== 0) cells.push({ key: `empty-${cells.length}`, date: '' })
       return cells
@@ -911,4 +929,5 @@ export default {
 .service-editor{scroll-margin-top:24px}
 .admin-booking-main>.admin-booking-amount{justify-items:end;text-align:right;gap:7px}.admin-booking-amount .amount-unpriced{color:#a46e4b}.admin-booking-amount .status{display:inline-block}
 @media(max-width:700px){.admin-booking-main>.admin-booking-amount{grid-column:2;grid-row:1}}
+.confirmed-calendar-event.confirmed-calendar-closure{background:#fff9e9}
 </style>
